@@ -306,23 +306,45 @@ export const GroceryCheckoutScreen: React.FC = () => {
 
         {/* Payment */}
         <SectionTitle icon="card-outline" label="Payment" />
-        <View style={styles.payRow}>
-          <TouchableOpacity style={[styles.payChip, payment === 'cod' && styles.payChipOn]} onPress={() => setPayment('cod')} activeOpacity={0.85}>
-            {payment === 'cod' && <Ionicons name="checkmark-circle" size={14} color={GROCERY} style={{ marginRight: 5 }} />}
-            <Text style={[styles.payText, payment === 'cod' && styles.payTextOn]}>Cash on delivery</Text>
-          </TouchableOpacity>
+        <View style={styles.payStack}>
           <TouchableOpacity
-            style={[styles.payChip, payment === 'online' && styles.payChipOn]}
-            onPress={() => setPayment('online')}
-            activeOpacity={0.85}
+            style={[styles.payCard, payment === 'cod' && styles.payCardOn]}
+            onPress={() => setPayment('cod')}
+            activeOpacity={0.88}
           >
-            {payment === 'online' && <Ionicons name="checkmark-circle" size={14} color={GROCERY} style={{ marginRight: 5 }} />}
-            <Text style={[styles.payText, payment === 'online' && styles.payTextOn]}>UPI / Online (Paytm)</Text>
+            <View style={[styles.payIconWrap, payment === 'cod' && styles.payIconWrapOn]}>
+              <Ionicons name="cash-outline" size={18} color={payment === 'cod' ? GROCERY : colors.gray[500]} />
+            </View>
+            <View style={styles.payCardText}>
+              <Text style={[styles.payTitle, payment === 'cod' && styles.payTitleOn]}>Cash on delivery</Text>
+              <Text style={styles.paySubtitle}>Pay when your order arrives</Text>
+            </View>
+            <View style={[styles.payRadio, payment === 'cod' && styles.payRadioOn]}>
+              {payment === 'cod' && <View style={styles.payRadioDot} />}
+            </View>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.payCard, payment === 'online' && styles.payCardOn]}
+            onPress={() => setPayment('online')}
+            activeOpacity={0.88}
+          >
+            <View style={[styles.payIconWrap, payment === 'online' && styles.payIconWrapOn]}>
+              <Ionicons name="qr-code-outline" size={18} color={payment === 'online' ? GROCERY : colors.gray[500]} />
+            </View>
+            <View style={styles.payCardText}>
+              <Text style={[styles.payTitle, payment === 'online' && styles.payTitleOn]}>UPI</Text>
+              <Text style={styles.paySubtitle}>Google Pay, PhonePe & other UPI apps</Text>
+            </View>
+            <View style={[styles.payRadio, payment === 'online' && styles.payRadioOn]}>
+              {payment === 'online' && <View style={styles.payRadioDot} />}
+            </View>
           </TouchableOpacity>
         </View>
-        <Text style={styles.hint}>
-          Online payments are confirmed by Paytm on the server before the order is marked paid.
-        </Text>
+        <View style={styles.hintRow}>
+          <Ionicons name="shield-checkmark-outline" size={12} color={colors.gray[400]} />
+          <Text style={styles.hint}>Online payments are verified securely before your order is confirmed.</Text>
+        </View>
 
         {/* Coupon */}
         <SectionTitle icon="pricetag-outline" label="Coupon" />
@@ -489,7 +511,50 @@ const styles = StyleSheet.create({
   payChipOn: { borderColor: GROCERY, backgroundColor: colors.gray[50] },
   payText: { color: colors.gray[700], fontSize: 13, fontFamily: fontFamily.semiBold },
   payTextOn: { color: GROCERY },
-  hint: { fontSize: 11, color: colors.gray[400], marginTop: 6, fontFamily: fontFamily.regular },
+  payStack: { gap: spacing.sm },
+  payCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    borderRadius: borderRadius.md,
+    borderWidth: 1.5,
+    borderColor: colors.gray[200],
+    backgroundColor: colors.white,
+    shadowColor: '#000',
+    shadowOpacity: 0.04,
+    shadowRadius: 6,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 1,
+  },
+  payCardOn: { borderColor: GROCERY, backgroundColor: colors.gray[50] },
+  payIconWrap: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: colors.gray[100],
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 12,
+  },
+  payIconWrapOn: { backgroundColor: colors.white },
+  payCardText: { flex: 1 },
+  payTitle: { color: colors.gray[800], fontSize: 14, fontFamily: fontFamily.semiBold },
+  payTitleOn: { color: GROCERY },
+  paySubtitle: { color: colors.gray[400], fontSize: 11, fontFamily: fontFamily.regular, marginTop: 2 },
+  payRadio: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    borderWidth: 1.5,
+    borderColor: colors.gray[300],
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  payRadioOn: { borderColor: GROCERY },
+  payRadioDot: { width: 10, height: 10, borderRadius: 5, backgroundColor: GROCERY },
+  hintRow: { flexDirection: 'row', alignItems: 'center', gap: 5, marginTop: 8 },
+  hint: { fontSize: 11, color: colors.gray[400], fontFamily: fontFamily.regular },
   couponRow: { flexDirection: 'row', gap: 8, alignItems: 'center' },
   couponBtn: {
     backgroundColor: GROCERY,
