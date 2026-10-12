@@ -1,0 +1,813 @@
+
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: var(--font-sans); color: var(--color-text-primary); }
+.container { max-width: 680px; }
+.tabs { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 20px; padding: 12px 0 8px; border-bottom: 0.5px solid var(--color-border-tertiary); position: sticky; top: 0; background: var(--color-background-primary); z-index: 10; }
+.tab { font-size: 12px; padding: 5px 11px; border: 0.5px solid var(--color-border-secondary); border-radius: 20px; cursor: pointer; color: var(--color-text-secondary); background: transparent; transition: all .15s; }
+.tab:hover { background: var(--color-background-secondary); color: var(--color-text-primary); }
+.tab.active { background: var(--color-text-primary); color: var(--color-background-primary); border-color: var(--color-text-primary); }
+.section { display: none; }
+.section.active { display: block; }
+h2 { font-size: 18px; font-weight: 500; margin-bottom: 4px; }
+h3 { font-size: 14px; font-weight: 500; margin: 16px 0 6px; }
+h4 { font-size: 13px; font-weight: 500; margin: 12px 0 4px; color: var(--color-text-secondary); text-transform: uppercase; letter-spacing: .04em; }
+p { font-size: 14px; line-height: 1.6; color: var(--color-text-secondary); margin-bottom: 8px; }
+.subtitle { font-size: 13px; color: var(--color-text-tertiary); margin-bottom: 16px; }
+pre { background: var(--color-background-secondary); border: 0.5px solid var(--color-border-tertiary); border-radius: var(--border-radius-md); padding: 12px 14px; font-family: var(--font-mono); font-size: 12px; line-height: 1.7; overflow-x: auto; margin: 8px 0 12px; color: var(--color-text-primary); white-space: pre; }
+.badge { display: inline-block; font-size: 11px; padding: 2px 8px; border-radius: 10px; font-weight: 500; }
+.badge-mvp { background: var(--color-background-success); color: var(--color-text-success); }
+.badge-future { background: var(--color-background-warning); color: var(--color-text-warning); }
+.badge-infra { background: var(--color-background-info); color: var(--color-text-info); }
+.card { background: var(--color-background-primary); border: 0.5px solid var(--color-border-tertiary); border-radius: var(--border-radius-lg); padding: 14px 16px; margin-bottom: 10px; }
+.card-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; }
+.card-title { font-size: 14px; font-weight: 500; }
+.grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 10px 0; }
+.grid3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; margin: 10px 0; }
+.mini-card { background: var(--color-background-secondary); border-radius: var(--border-radius-md); padding: 10px 12px; font-size: 13px; }
+.mini-card .label { font-size: 11px; color: var(--color-text-tertiary); margin-bottom: 3px; text-transform: uppercase; letter-spacing: .04em; }
+.mini-card .val { font-size: 13px; font-weight: 500; }
+.phase { border-left: 3px solid; padding: 10px 14px; margin-bottom: 10px; border-radius: 0 var(--border-radius-md) var(--border-radius-md) 0; }
+.phase-1 { border-color: #1D9E75; background: #E1F5EE; }
+.phase-2 { border-color: #BA7517; background: #FAEEDA; }
+.phase-3 { border-color: #534AB7; background: #EEEDFE; }
+.phase-1 .phase-title { color: #085041; }
+.phase-2 .phase-title { color: #633806; }
+.phase-3 .phase-title { color: #26215C; }
+@media (prefers-color-scheme: dark) {
+  .phase-1 { border-color: #1D9E75; background: #04342C; }
+  .phase-2 { border-color: #EF9F27; background: #412402; }
+  .phase-3 { border-color: #7F77DD; background: #26215C; }
+  .phase-1 .phase-title { color: #9FE1CB; }
+  .phase-2 .phase-title { color: #FAC775; }
+  .phase-3 .phase-title { color: #CECBF6; }
+}
+.phase-title { font-size: 14px; font-weight: 500; margin-bottom: 4px; }
+.phase-items { font-size: 13px; color: var(--color-text-secondary); line-height: 1.7; }
+.tag-row { display: flex; flex-wrap: wrap; gap: 5px; margin: 6px 0; }
+.tag { font-size: 11px; padding: 2px 8px; border-radius: 10px; border: 0.5px solid var(--color-border-secondary); color: var(--color-text-secondary); }
+.divider { border: none; border-top: 0.5px solid var(--color-border-tertiary); margin: 16px 0; }
+.api-block { margin-bottom: 14px; }
+.api-method { font-size: 11px; font-weight: 500; padding: 2px 7px; border-radius: 4px; margin-right: 6px; }
+.get { background: #E1F5EE; color: #085041; }
+.post { background: #E6F1FB; color: #0C447C; }
+.put { background: #FAEEDA; color: #633806; }
+.delete { background: #FCEBEB; color: #791F1F; }
+@media (prefers-color-scheme: dark) {
+  .get { background: #04342C; color: #9FE1CB; }
+  .post { background: #042C53; color: #B5D4F4; }
+  .put { background: #412402; color: #FAC775; }
+  .delete { background: #501313; color: #F7C1C1; }
+}
+.api-path { font-family: var(--font-mono); font-size: 13px; }
+.api-desc { font-size: 12px; color: var(--color-text-tertiary); margin-top: 2px; }
+.table-wrap { overflow-x: auto; margin: 8px 0; }
+table { width: 100%; font-size: 13px; border-collapse: collapse; }
+th { text-align: left; padding: 7px 10px; font-weight: 500; font-size: 12px; color: var(--color-text-secondary); border-bottom: 0.5px solid var(--color-border-tertiary); }
+td { padding: 7px 10px; border-bottom: 0.5px solid var(--color-border-tertiary); color: var(--color-text-secondary); vertical-align: top; }
+tr:last-child td { border-bottom: none; }
+.dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; margin-right: 6px; }
+.dot-green { background: #1D9E75; }
+.dot-blue { background: #378ADD; }
+.dot-amber { background: #BA7517; }
+.dot-purple { background: #534AB7; }
+</style>
+
+<div class="container">
+<div class="tabs" id="tabs">
+  <button class="tab active" onclick="show('roadmap',this)">Roadmap</button>
+  <button class="tab" onclick="show('repo',this)">Repo Structure</button>
+  <button class="tab" onclick="show('frontend',this)">Frontend</button>
+  <button class="tab" onclick="show('backend',this)">Backend</button>
+  <button class="tab" onclick="show('database',this)">Database</button>
+  <button class="tab" onclick="show('apis',this)">API Contracts</button>
+  <button class="tab" onclick="show('integrations',this)">Integrations</button>
+  <button class="tab" onclick="show('future',this)">Future Modules</button>
+  <button class="tab" onclick="show('devops',this)">DevOps</button>
+</div>
+
+<!-- ROADMAP -->
+<div class="section active" id="roadmap">
+  <h2>Product Roadmap</h2>
+  <p class="subtitle">From MVP to full multi-module super-app in 3 phases</p>
+
+  <div class="phase phase-1">
+    <div class="phase-title">Phase 1 — MVP (Months 1–4) <span class="badge badge-mvp">MVP</span></div>
+    <div class="phase-items">
+      <b>Food Delivery:</b> Multi-restaurant listings, menu browsing, cart, order placement, order tracking, restaurant/vendor onboarding<br>
+      <b>Grocery (In-house):</b> App-owned product catalog, categories, inventory mgmt, cart, checkout<br>
+      <b>Core Infrastructure:</b> User auth (JWT + OTP), Razorpay + COD payments, Firebase push notifications, basic admin panel, PostgreSQL schema<br>
+      <b>Deliverables:</b> React Native app (Android + iOS), FastAPI backend, Admin panel (React + Ant Design)
+    </div>
+  </div>
+
+  <div class="phase phase-2">
+    <div class="phase-title">Phase 2 — Growth (Months 5–8) <span class="badge badge-future">Expansion</span></div>
+    <div class="phase-items">
+      <b>Cab Booking:</b> Google Maps integration, real-time driver tracking, ride requests, fare estimation<br>
+      <b>Enhanced Food:</b> Restaurant ratings/reviews, promo codes, scheduled delivery, loyalty points<br>
+      <b>Enhanced Grocery:</b> Flash sales, subscription orders, substitution logic<br>
+      <b>Operations:</b> Analytics dashboard, delivery partner app, SLA monitoring, CI/CD maturity
+    </div>
+  </div>
+
+  <div class="phase phase-3">
+    <div class="phase-title">Phase 3 — Super-App (Months 9–14) <span class="badge badge-infra">Scale</span></div>
+    <div class="phase-items">
+      <b>Salon/Barber Services:</b> Slot booking, stylist profiles, service catalog, in-home or in-store<br>
+      <b>Module Framework:</b> Plugin-style service loader, universal service card component, shared cart across services<br>
+      <b>Infrastructure Scale:</b> Redis caching, Celery async tasks, microservice split, Kubernetes deployment, multi-region<br>
+      <b>Platform:</b> Partner SDK, webhook system, third-party service integration API
+    </div>
+  </div>
+
+  <h3>Tech Stack Summary</h3>
+  <div class="grid2">
+    <div class="mini-card"><div class="label">Frontend</div><div class="val">React Native (Expo)</div></div>
+    <div class="mini-card"><div class="label">Backend</div><div class="val">Python FastAPI</div></div>
+    <div class="mini-card"><div class="label">Database</div><div class="val">PostgreSQL + Redis</div></div>
+    <div class="mini-card"><div class="label">Payments</div><div class="val">Razorpay + COD</div></div>
+    <div class="mini-card"><div class="label">Maps</div><div class="val">Google Maps API</div></div>
+    <div class="mini-card"><div class="label">Notifications</div><div class="val">Firebase FCM</div></div>
+    <div class="mini-card"><div class="label">Admin Panel</div><div class="val">React + Ant Design</div></div>
+    <div class="mini-card"><div class="label">DevOps</div><div class="val">Docker + GitHub CI</div></div>
+  </div>
+</div>
+
+<!-- REPO STRUCTURE -->
+<div class="section" id="repo">
+  <h2>Repository Structure</h2>
+  <p class="subtitle">Three repos: mobile app, backend services, admin panel</p>
+
+  <div class="card">
+    <div class="card-header"><span class="card-title">superapp-mobile</span><span class="badge badge-mvp">React Native</span></div>
+    <pre>superapp-mobile/
+├── src/
+│   ├── modules/
+│   │   ├── food/
+│   │   │   ├── screens/
+│   │   │   ├── components/
+│   │   │   ├── hooks/
+│   │   │   └── store/
+│   │   ├── grocery/
+│   │   │   ├── screens/
+│   │   │   ├── components/
+│   │   │   └── store/
+│   │   ├── cab/              # Phase 2
+│   │   └── salon/            # Phase 3
+│   ├── shared/
+│   │   ├── components/       # Button, Input, Card...
+│   │   ├── navigation/       # RootNavigator, TabBar
+│   │   ├── services/         # api.ts, storage.ts
+│   │   ├── store/            # Redux/Zustand root
+│   │   └── utils/
+│   ├── auth/
+│   │   ├── screens/
+│   │   └── store/
+│   └── App.tsx
+├── assets/
+├── app.json
+└── package.json</pre>
+  </div>
+
+  <div class="card">
+    <div class="card-header"><span class="card-title">superapp-backend</span><span class="badge badge-mvp">FastAPI</span></div>
+    <pre>superapp-backend/
+├── app/
+│   ├── main.py               # FastAPI app init
+│   ├── config.py             # Settings (pydantic-settings)
+│   ├── database.py           # SQLAlchemy engine/session
+│   ├── dependencies.py       # Auth, DB deps
+│   ├── modules/
+│   │   ├── auth/
+│   │   │   ├── router.py
+│   │   │   ├── models.py
+│   │   │   ├── schemas.py
+│   │   │   └── service.py
+│   │   ├── users/
+│   │   ├── food/
+│   │   │   ├── router.py
+│   │   │   ├── models.py     # Restaurant, MenuItem, Order
+│   │   │   ├── schemas.py
+│   │   │   └── service.py
+│   │   ├── grocery/
+│   │   │   ├── router.py
+│   │   │   ├── models.py     # Product, Inventory, Category
+│   │   │   ├── schemas.py
+│   │   │   └── service.py
+│   │   ├── orders/           # Unified order engine
+│   │   ├── payments/         # Razorpay integration
+│   │   ├── notifications/    # Firebase FCM
+│   │   ├── cab/              # Phase 2
+│   │   └── salon/            # Phase 3
+│   └── admin/
+│       ├── router.py
+│       └── endpoints/
+├── alembic/                  # DB migrations
+├── tests/
+├── Dockerfile
+├── docker-compose.yml
+└── requirements.txt</pre>
+  </div>
+
+  <div class="card">
+    <div class="card-header"><span class="card-title">superapp-admin</span><span class="badge badge-infra">React + Ant Design</span></div>
+    <pre>superapp-admin/
+├── src/
+│   ├── pages/
+│   │   ├── dashboard/
+│   │   ├── food/
+│   │   │   ├── RestaurantList.tsx
+│   │   │   ├── MenuManager.tsx
+│   │   │   └── VendorOnboarding.tsx
+│   │   ├── grocery/
+│   │   │   ├── ProductList.tsx
+│   │   │   ├── InventoryManager.tsx
+│   │   │   └── CategoryManager.tsx
+│   │   ├── orders/
+│   │   ├── users/
+│   │   └── settings/
+│   ├── components/
+│   ├── api/                  # Axios service clients
+│   └── App.tsx
+└── package.json</pre>
+  </div>
+</div>
+
+<!-- FRONTEND -->
+<div class="section" id="frontend">
+  <h2>Frontend Plan</h2>
+  <p class="subtitle">React Native with modular screen architecture and Zustand state management</p>
+
+  <h3>Navigation Architecture</h3>
+  <pre>RootNavigator
+├── AuthStack (unauthenticated)
+│   ├── SplashScreen
+│   ├── LoginScreen
+│   └── OTPVerifyScreen
+└── MainStack (authenticated)
+    ├── BottomTabNavigator
+    │   ├── HomeTab → HomeScreen (service selector)
+    │   ├── OrdersTab → OrderHistoryScreen
+    │   ├── CartTab → UnifiedCartScreen
+    │   └── ProfileTab → ProfileScreen
+    ├── FoodStack
+    │   ├── RestaurantListScreen
+    │   ├── RestaurantDetailScreen
+    │   ├── MenuItemDetailScreen
+    │   ├── FoodCartScreen
+    │   └── OrderTrackingScreen
+    ├── GroceryStack
+    │   ├── GroceryCategoryScreen
+    │   ├── ProductListScreen
+    │   ├── ProductDetailScreen
+    │   └── GroceryCartScreen
+    ├── CabStack (Phase 2)
+    │   ├── RideHomeScreen
+    │   ├── PickupDropScreen
+    │   └── ActiveRideScreen
+    └── SalonStack (Phase 3)
+        ├── SalonListScreen
+        ├── ServiceSelectScreen
+        └── SlotBookingScreen</pre>
+
+  <h3>State Management (Zustand)</h3>
+  <div class="grid2">
+    <div class="mini-card"><div class="label">authStore</div><div class="val">user, token, login/logout</div></div>
+    <div class="mini-card"><div class="label">cartStore</div><div class="val">items, module type, totals</div></div>
+    <div class="mini-card"><div class="label">foodStore</div><div class="val">restaurants, active order</div></div>
+    <div class="mini-card"><div class="label">groceryStore</div><div class="val">products, categories</div></div>
+    <div class="mini-card"><div class="label">orderStore</div><div class="val">order history, tracking</div></div>
+    <div class="mini-card"><div class="label">locationStore</div><div class="val">current coords, address</div></div>
+  </div>
+
+  <h3>Shared Component Library</h3>
+  <div class="tag-row">
+    <span class="tag">AppButton</span><span class="tag">AppInput</span><span class="tag">ProductCard</span>
+    <span class="tag">RestaurantCard</span><span class="tag">OrderStatusBadge</span><span class="tag">PriceTag</span>
+    <span class="tag">QuantitySelector</span><span class="tag">AddressSelector</span><span class="tag">MapView</span>
+    <span class="tag">RatingStars</span><span class="tag">ImageCarousel</span><span class="tag">SkeletonLoader</span>
+    <span class="tag">EmptyState</span><span class="tag">ErrorBoundary</span>
+  </div>
+
+  <h3>Key Design Patterns</h3>
+  <div class="card">
+    <div class="card-title" style="margin-bottom:6px">Module Registry Pattern</div>
+    <p style="font-size:13px">Each service module exports a <code>ModuleConfig</code> object with: <code>id</code>, <code>name</code>, <code>icon</code>, <code>HomeCard</code> component, <code>navigator</code>. The HomeScreen dynamically renders registered modules — adding a new service only requires registering it in <code>moduleRegistry.ts</code>, no HomeScreen changes needed.</p>
+  </div>
+  <div class="card">
+    <div class="card-title" style="margin-bottom:6px">Universal Cart</div>
+    <p style="font-size:13px">The cart store holds a <code>moduleType</code> field (<code>'food' | 'grocery' | 'cab' | 'salon'</code>). Switching modules warns the user if there are items from a different module. At checkout, the unified <code>CartScreen</code> renders module-specific line items, delivery info, and payment options.</p>
+  </div>
+</div>
+
+<!-- BACKEND -->
+<div class="section" id="backend">
+  <h2>Backend Plan</h2>
+  <p class="subtitle">FastAPI modular microservices — monorepo first, split later</p>
+
+  <h3>FastAPI App Structure</h3>
+  <pre># app/main.py
+from fastapi import FastAPI
+from app.modules.auth.router import router as auth_router
+from app.modules.food.router import router as food_router
+from app.modules.grocery.router import router as grocery_router
+from app.modules.orders.router import router as orders_router
+from app.modules.payments.router import router as payments_router
+from app.admin.router import router as admin_router
+
+app = FastAPI(title="SuperApp API", version="1.0.0")
+
+app.include_router(auth_router,     prefix="/api/v1/auth")
+app.include_router(food_router,     prefix="/api/v1/food")
+app.include_router(grocery_router,  prefix="/api/v1/grocery")
+app.include_router(orders_router,   prefix="/api/v1/orders")
+app.include_router(payments_router, prefix="/api/v1/payments")
+app.include_router(admin_router,    prefix="/api/v1/admin")</pre>
+
+  <h3>Module Structure (Food example)</h3>
+  <pre># app/modules/food/models.py
+class Restaurant(Base):
+    __tablename__ = "restaurants"
+    id = Column(UUID, primary_key=True, default=uuid4)
+    name = Column(String, nullable=False)
+    vendor_id = Column(UUID, ForeignKey("vendors.id"))
+    is_active = Column(Boolean, default=True)
+    delivery_radius_km = Column(Float)
+    avg_delivery_time_mins = Column(Integer)
+    rating = Column(Numeric(3,2))
+    menu_items = relationship("MenuItem", back_populates="restaurant")
+
+class MenuItem(Base):
+    __tablename__ = "menu_items"
+    id = Column(UUID, primary_key=True, default=uuid4)
+    restaurant_id = Column(UUID, ForeignKey("restaurants.id"))
+    name = Column(String, nullable=False)
+    price = Column(Numeric(10,2))
+    is_veg = Column(Boolean)
+    is_available = Column(Boolean, default=True)
+    category = Column(String)  # Starter, Main, Dessert</pre>
+
+  <h3>Authentication Flow</h3>
+  <pre># JWT + OTP Strategy
+POST /api/v1/auth/send-otp   → send SMS OTP via Twilio/MSG91
+POST /api/v1/auth/verify-otp → verify OTP → return access_token + refresh_token
+POST /api/v1/auth/refresh    → refresh access token
+POST /api/v1/auth/logout     → blacklist refresh token (Redis)
+
+# Dependency injection
+async def get_current_user(token: str = Depends(oauth2_scheme), db = Depends(get_db)):
+    payload = jwt.decode(token, SECRET_KEY, algorithms=["HS256"])
+    user = await db.get(User, payload["sub"])
+    return user</pre>
+
+  <h3>Grocery Inventory Service</h3>
+  <pre># app/modules/grocery/service.py
+class GroceryInventoryService:
+    async def update_stock(self, product_id: UUID, delta: int, db: AsyncSession):
+        """Atomic stock decrement on order placement"""
+        result = await db.execute(
+            update(Product)
+            .where(Product.id == product_id, Product.stock_quantity >= abs(delta))
+            .values(stock_quantity=Product.stock_quantity + delta)
+            .returning(Product)
+        )
+        if not result.scalar_one_or_none():
+            raise HTTPException(409, "Insufficient stock")
+
+    async def get_low_stock_alerts(self, threshold: int = 10, db: AsyncSession):
+        return await db.execute(
+            select(Product).where(Product.stock_quantity <= threshold)
+        )</pre>
+
+  <h3>Async Task Queue (Celery + Redis)</h3>
+  <div class="tag-row">
+    <span class="tag">send_order_confirmation_email</span>
+    <span class="tag">send_push_notification</span>
+    <span class="tag">update_delivery_eta</span>
+    <span class="tag">process_refund</span>
+    <span class="tag">daily_inventory_report</span>
+    <span class="tag">expire_promo_codes</span>
+  </div>
+</div>
+
+<!-- DATABASE -->
+<div class="section" id="database">
+  <h2>Database Schema</h2>
+  <p class="subtitle">PostgreSQL — normalized schema with UUID PKs, designed for future module extension</p>
+
+  <h3>Core Tables</h3>
+  <div class="table-wrap">
+  <table>
+    <tr><th>Table</th><th>Key Columns</th><th>Notes</th></tr>
+    <tr><td><code>users</code></td><td>id, phone, name, email, fcm_token, created_at</td><td>Single user table for all modules</td></tr>
+    <tr><td><code>addresses</code></td><td>id, user_id, label, lat, lng, full_address</td><td>Multiple saved addresses per user</td></tr>
+    <tr><td><code>vendors</code></td><td>id, name, phone, bank_details, is_approved</td><td>Food module only (restaurants)</td></tr>
+    <tr><td><code>restaurants</code></td><td>id, vendor_id, name, rating, delivery_time, is_active</td><td>Multi-vendor food delivery</td></tr>
+    <tr><td><code>menu_items</code></td><td>id, restaurant_id, name, price, is_veg, category</td><td>Belongs to restaurant</td></tr>
+    <tr><td><code>products</code></td><td>id, name, sku, price, mrp, stock_qty, category_id, <b>vendor_id=NULL</b></td><td>App-owned — no external vendor</td></tr>
+    <tr><td><code>product_categories</code></td><td>id, name, parent_id, image_url, display_order</td><td>Hierarchical (Fruits → Apples)</td></tr>
+    <tr><td><code>orders</code></td><td>id, user_id, module_type, status, total, payment_method, address_id</td><td>Unified — module_type ENUM</td></tr>
+    <tr><td><code>order_items</code></td><td>id, order_id, item_ref_id, item_type, qty, unit_price</td><td>Polymorphic ref to menu_item/product</td></tr>
+    <tr><td><code>payments</code></td><td>id, order_id, provider, provider_order_id, status, amount</td><td>Razorpay + COD</td></tr>
+    <tr><td><code>delivery_agents</code></td><td>id, name, phone, current_lat, current_lng, is_available</td><td>Shared across food + grocery</td></tr>
+  </table>
+  </div>
+
+  <h3>Grocery Products — App-Managed (No Vendor)</h3>
+  <pre>CREATE TABLE products (
+    id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    sku             VARCHAR(50) UNIQUE NOT NULL,
+    name            VARCHAR(255) NOT NULL,
+    description     TEXT,
+    price           NUMERIC(10,2) NOT NULL,
+    mrp             NUMERIC(10,2),
+    unit            VARCHAR(50),          -- '500g', '1 litre'
+    stock_quantity  INTEGER NOT NULL DEFAULT 0,
+    reserved_qty    INTEGER NOT NULL DEFAULT 0, -- held during checkout
+    category_id     UUID REFERENCES product_categories(id),
+    image_urls      TEXT[],
+    is_active       BOOLEAN DEFAULT TRUE,
+    created_at      TIMESTAMPTZ DEFAULT NOW(),
+    updated_at      TIMESTAMPTZ DEFAULT NOW()
+    -- NO vendor_id: this is always app-owned
+);
+CREATE INDEX idx_products_category ON products(category_id);
+CREATE INDEX idx_products_active ON products(is_active, stock_quantity);</pre>
+
+  <h3>Orders — Unified Module Design</h3>
+  <pre>CREATE TYPE module_type AS ENUM ('food', 'grocery', 'cab', 'salon');
+CREATE TYPE order_status AS ENUM (
+    'pending', 'confirmed', 'preparing', 'out_for_delivery',
+    'delivered', 'cancelled', 'refunded'
+);
+
+CREATE TABLE orders (
+    id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id         UUID REFERENCES users(id),
+    module_type     module_type NOT NULL,
+    status          order_status NOT NULL DEFAULT 'pending',
+    subtotal        NUMERIC(10,2),
+    delivery_fee    NUMERIC(10,2) DEFAULT 0,
+    discount        NUMERIC(10,2) DEFAULT 0,
+    total           NUMERIC(10,2),
+    payment_method  VARCHAR(50),  -- 'razorpay' | 'cod'
+    delivery_address_id UUID REFERENCES addresses(id),
+    agent_id        UUID REFERENCES delivery_agents(id),
+    estimated_delivery TIMESTAMPTZ,
+    created_at      TIMESTAMPTZ DEFAULT NOW()
+);
+CREATE INDEX idx_orders_user ON orders(user_id, created_at DESC);
+CREATE INDEX idx_orders_status ON orders(status, module_type);</pre>
+
+  <h3>Future Module Extension Pattern</h3>
+  <pre>-- Adding cab module: new table, same orders table
+CREATE TABLE cab_rides (
+    id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    order_id        UUID REFERENCES orders(id),
+    pickup_lat      DECIMAL(9,6), pickup_lng DECIMAL(9,6),
+    drop_lat        DECIMAL(9,6), drop_lng  DECIMAL(9,6),
+    driver_id       UUID REFERENCES delivery_agents(id),
+    fare_estimate   NUMERIC(10,2),
+    distance_km     NUMERIC(6,2)
+);
+-- order.module_type = 'cab' links them together</pre>
+</div>
+
+<!-- API CONTRACTS -->
+<div class="section" id="apis">
+  <h2>API Contracts</h2>
+  <p class="subtitle">REST API design — versioned under /api/v1/</p>
+
+  <h3>Auth APIs</h3>
+  <div class="api-block">
+    <div><span class="api-method post badge">POST</span><span class="api-path">/api/v1/auth/send-otp</span></div>
+    <div class="api-desc">Body: {phone} → Sends OTP via SMS</div>
+  </div>
+  <div class="api-block">
+    <div><span class="api-method post badge">POST</span><span class="api-path">/api/v1/auth/verify-otp</span></div>
+    <div class="api-desc">Body: {phone, otp} → Returns {access_token, refresh_token, user}</div>
+  </div>
+
+  <h3>Food Module APIs</h3>
+  <div class="api-block">
+    <div><span class="api-method get badge">GET</span><span class="api-path">/api/v1/food/restaurants</span></div>
+    <div class="api-desc">Query: ?lat=&lng=&radius_km=5&cuisine=&sort_by=rating → paginated list</div>
+  </div>
+  <div class="api-block">
+    <div><span class="api-method get badge">GET</span><span class="api-path">/api/v1/food/restaurants/{id}/menu</span></div>
+    <div class="api-desc">Returns full menu grouped by category with availability flags</div>
+  </div>
+  <div class="api-block">
+    <div><span class="api-method post badge">POST</span><span class="api-path">/api/v1/food/orders</span></div>
+    <div class="api-desc">Body: {restaurant_id, items:[{menu_item_id, qty}], address_id, payment_method}</div>
+  </div>
+  <div class="api-block">
+    <div><span class="api-method get badge">GET</span><span class="api-path">/api/v1/food/orders/{id}/track</span></div>
+    <div class="api-desc">Returns {status, agent_location, estimated_arrival, timeline}</div>
+  </div>
+
+  <h3>Grocery Module APIs</h3>
+  <div class="api-block">
+    <div><span class="api-method get badge">GET</span><span class="api-path">/api/v1/grocery/categories</span></div>
+    <div class="api-desc">Returns hierarchical category tree with product counts</div>
+  </div>
+  <div class="api-block">
+    <div><span class="api-method get badge">GET</span><span class="api-path">/api/v1/grocery/products</span></div>
+    <div class="api-desc">Query: ?category_id=&search=&in_stock=true&page=&limit= → paginated</div>
+  </div>
+  <div class="api-block">
+    <div><span class="api-method post badge">POST</span><span class="api-path">/api/v1/grocery/orders</span></div>
+    <div class="api-desc">Body: {items:[{product_id, qty}], address_id, payment_method, slot?}</div>
+  </div>
+
+  <h3>Cab Module APIs (Phase 2)</h3>
+  <div class="api-block">
+    <div><span class="api-method post badge">POST</span><span class="api-path">/api/v1/cab/estimate</span></div>
+    <div class="api-desc">Body: {pickup_lat, pickup_lng, drop_lat, drop_lng} → fare + ETA estimate</div>
+  </div>
+  <div class="api-block">
+    <div><span class="api-method post badge">POST</span><span class="api-path">/api/v1/cab/book</span></div>
+    <div class="api-desc">Body: {pickup, drop, vehicle_type, payment_method} → creates order + ride</div>
+  </div>
+  <div class="api-block">
+    <div><span class="api-method get badge">GET</span><span class="api-path">/api/v1/cab/rides/{id}/driver-location</span></div>
+    <div class="api-desc">Real-time driver lat/lng via polling or WebSocket upgrade</div>
+  </div>
+
+  <h3>Admin APIs</h3>
+  <div class="api-block">
+    <div><span class="api-method put badge">PUT</span><span class="api-path">/api/v1/admin/grocery/products/{id}/stock</span></div>
+    <div class="api-desc">Body: {delta, reason} → Adjust stock quantity with audit log</div>
+  </div>
+  <div class="api-block">
+    <div><span class="api-method put badge">PUT</span><span class="api-path">/api/v1/admin/orders/{id}/status</span></div>
+    <div class="api-desc">Body: {status, note} → Admin order status override</div>
+  </div>
+  <div class="api-block">
+    <div><span class="api-method get badge">GET</span><span class="api-path">/api/v1/admin/dashboard/metrics</span></div>
+    <div class="api-desc">Returns {orders_today, revenue, active_agents, low_stock_count}</div>
+  </div>
+
+  <h3>Payments Webhook</h3>
+  <pre>POST /api/v1/payments/razorpay/webhook
+# Razorpay sends HMAC-signed events
+# Events handled:
+# - payment.captured → confirm order
+# - payment.failed   → mark order failed, release inventory
+# - refund.processed → update payment record</pre>
+</div>
+
+<!-- INTEGRATIONS -->
+<div class="section" id="integrations">
+  <h2>Integration Plan</h2>
+  <p class="subtitle">Razorpay, Google Maps, Firebase FCM, and Admin Panel</p>
+
+  <div class="card">
+    <div class="card-header"><span class="card-title">Razorpay Integration</span><span class="badge badge-mvp">MVP</span></div>
+    <pre style="margin-top:8px"># Backend: Create order
+import razorpay
+client = razorpay.Client(auth=(KEY_ID, KEY_SECRET))
+
+def create_razorpay_order(amount_paise: int, order_id: str):
+    return client.order.create({
+        "amount": amount_paise,
+        "currency": "INR",
+        "receipt": str(order_id),
+        "notes": {"module": "food"}
+    })
+
+# Mobile: Use react-native-razorpay
+RazorpayCheckout.open({
+  description: 'Order Payment',
+  currency: 'INR',
+  key: RAZORPAY_KEY_ID,
+  amount: total_paise,
+  order_id: razorpay_order_id,
+  prefill: { contact: user.phone }
+})</pre>
+  </div>
+
+  <div class="card">
+    <div class="card-header"><span class="card-title">Firebase Push Notifications</span><span class="badge badge-mvp">MVP</span></div>
+    <pre style="margin-top:8px"># Backend: app/modules/notifications/service.py
+import firebase_admin
+from firebase_admin import messaging
+
+def send_order_notification(fcm_token: str, title: str, body: str, data: dict):
+    message = messaging.Message(
+        notification=messaging.Notification(title=title, body=body),
+        data=data,
+        token=fcm_token,
+        android=messaging.AndroidConfig(priority="high")
+    )
+    return messaging.send(message)
+
+# Called from: order status changes, delivery updates
+# Mobile: react-native-firebase for foreground/background handling</pre>
+  </div>
+
+  <div class="card">
+    <div class="card-header"><span class="card-title">Google Maps (Cab + Delivery)</span><span class="badge badge-future">Phase 2</span></div>
+    <pre style="margin-top:8px"># Backend: Geocoding + Distance Matrix
+import googlemaps
+gmaps = googlemaps.Client(key=GOOGLE_MAPS_API_KEY)
+
+def get_distance_and_eta(origin: tuple, destination: tuple):
+    result = gmaps.distance_matrix(
+        origins=[origin], destinations=[destination], mode="driving"
+    )
+    element = result["rows"][0]["elements"][0]
+    return {
+        "distance_km": element["distance"]["value"] / 1000,
+        "eta_mins": element["duration"]["value"] // 60
+    }
+
+# Mobile: react-native-maps + Google Maps SDK
+# Use Mapbox as fallback for lower cost at scale</pre>
+  </div>
+
+  <div class="card">
+    <div class="card-header"><span class="card-title">Admin Panel Integration</span><span class="badge badge-mvp">MVP</span></div>
+    <p style="font-size:13px;margin-top:6px">Admin panel (React + Ant Design) communicates with <code>/api/v1/admin/*</code> endpoints using a separate admin JWT scope. Key sections: Dashboard (metrics), Restaurant Manager, Menu Manager, Grocery Inventory (stock alerts, bulk upload), Order Manager, Delivery Agent Manager, User Manager. All CRUD operations go through dedicated admin endpoints — never the customer-facing API.</p>
+  </div>
+</div>
+
+<!-- FUTURE MODULES -->
+<div class="section" id="future">
+  <h2>Future Module Expansion</h2>
+  <p class="subtitle">Adding new services without rewriting core infrastructure</p>
+
+  <h3>The Module Contract</h3>
+  <p>Every service module must implement a standard interface. This is enforced via a <code>BaseModule</code> abstract class in both backend and frontend. Adding a new service = implementing the contract + registering the module. Zero changes to shared infrastructure.</p>
+
+  <pre># Backend: app/modules/base.py
+from abc import ABC, abstractmethod
+
+class BaseServiceModule(ABC):
+    module_type: str            # 'food' | 'grocery' | 'cab' | 'salon'
+    router: APIRouter
+
+    @abstractmethod
+    async def create_order(self, payload, user, db): ...
+
+    @abstractmethod
+    async def get_order_status(self, order_id, db): ...
+
+    @abstractmethod
+    async def cancel_order(self, order_id, user, db): ...
+
+# New module: just implement BaseServiceModule and register:
+app.include_router(salon_router, prefix="/api/v1/salon")</pre>
+
+  <h3>Salon / Barber Module (Phase 3)</h3>
+  <div class="card">
+    <div class="phase-items">
+      <b>New Tables:</b> salons, stylists, services, service_categories, time_slots, bookings<br>
+      <b>New Endpoints:</b> GET /salon/services, POST /salon/bookings, GET /salon/slots<br>
+      <b>New Screens:</b> SalonListScreen, ServiceSelectScreen, StylistSelectScreen, SlotPickerScreen, BookingConfirmScreen<br>
+      <b>Orders table:</b> module_type = 'salon', new <code>salon_bookings</code> row created<br>
+      <b>Payment:</b> Same Razorpay flow — no changes to payment service
+    </div>
+  </div>
+
+  <h3>Cab Booking Module (Phase 2)</h3>
+  <div class="card">
+    <div class="phase-items">
+      <b>New Tables:</b> cab_rides, drivers, vehicle_types<br>
+      <b>New Endpoints:</b> POST /cab/estimate, POST /cab/book, WS /cab/rides/{id}/live<br>
+      <b>New Screens:</b> RideHomeScreen (map), PickupDropScreen, ActiveRideScreen (live driver)<br>
+      <b>WebSocket:</b> Add FastAPI WebSocket endpoint for real-time driver location — shared connection manager in <code>app/websockets/</code><br>
+      <b>delivery_agents table:</b> reused for drivers (add vehicle_type, license columns)
+    </div>
+  </div>
+
+  <h3>How to Add Any Future Module</h3>
+  <div class="table-wrap">
+  <table>
+    <tr><th>Step</th><th>Backend</th><th>Frontend</th></tr>
+    <tr><td>1</td><td>Create <code>app/modules/{name}/</code> with router, models, schemas, service</td><td>Create <code>src/modules/{name}/</code> with screens, store, components</td></tr>
+    <tr><td>2</td><td>Add <code>module_type</code> to orders ENUM migration</td><td>Create <code>ModuleConfig</code> object with icon + navigator</td></tr>
+    <tr><td>3</td><td>Register router in <code>main.py</code></td><td>Register in <code>moduleRegistry.ts</code></td></tr>
+    <tr><td>4</td><td>Add admin endpoints + admin panel page</td><td>HomeScreen auto-renders new service card</td></tr>
+  </table>
+  </div>
+</div>
+
+<!-- DEVOPS -->
+<div class="section" id="devops">
+  <h2>Deployment & DevOps</h2>
+  <p class="subtitle">Local → Staging → Production with Docker and GitHub Actions</p>
+
+  <h3>Local Development</h3>
+  <pre># docker-compose.yml (local)
+services:
+  db:
+    image: postgres:16
+    environment:
+      POSTGRES_DB: superapp
+      POSTGRES_PASSWORD: local_pw
+    volumes: [pgdata:/var/lib/postgresql/data]
+
+  redis:
+    image: redis:7-alpine
+
+  api:
+    build: .
+    command: uvicorn app.main:app --reload --host 0.0.0.0
+    volumes: [.:/app]
+    depends_on: [db, redis]
+    env_file: .env.local
+    ports: ["8000:8000"]
+
+  celery:
+    build: .
+    command: celery -A app.celery worker --loglevel=info
+    depends_on: [redis]</pre>
+
+  <h3>Environment Strategy</h3>
+  <div class="grid3">
+    <div class="mini-card"><div class="label">Local</div><div class="val">Docker Compose, .env.local</div></div>
+    <div class="mini-card"><div class="label">Staging</div><div class="val">Render / Railway, .env.staging</div></div>
+    <div class="mini-card"><div class="label">Production</div><div class="val">AWS ECS or GCP Cloud Run</div></div>
+  </div>
+
+  <h3>CI/CD — GitHub Actions</h3>
+  <pre># .github/workflows/backend.yml
+name: Backend CI/CD
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env: { POSTGRES_PASSWORD: test }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: '3.12' }
+      - run: pip install -r requirements.txt
+      - run: pytest tests/ -v --cov=app
+
+  deploy-staging:
+    needs: test
+    if: github.ref == 'refs/heads/develop'
+    # Deploy to staging environment
+
+  deploy-prod:
+    needs: test
+    if: github.ref == 'refs/heads/main'
+    # Deploy to production (requires manual approval)</pre>
+
+  <h3>Branch Strategy</h3>
+  <div class="table-wrap">
+  <table>
+    <tr><th>Branch</th><th>Purpose</th><th>Deploy Target</th></tr>
+    <tr><td><code>main</code></td><td>Production-ready code</td><td>Production</td></tr>
+    <tr><td><code>develop</code></td><td>Integration branch</td><td>Staging</td></tr>
+    <tr><td><code>feature/*</code></td><td>Feature development</td><td>Local / PR preview</td></tr>
+    <tr><td><code>hotfix/*</code></td><td>Urgent prod fixes</td><td>Production (fast-track)</td></tr>
+  </table>
+  </div>
+
+  <h3>Database Migrations</h3>
+  <pre># Using Alembic for schema migrations
+alembic init alembic
+alembic revision --autogenerate -m "add_cab_module_tables"
+alembic upgrade head
+
+# Each module maintains its own migration files
+# alembic/versions/001_core_tables.py
+# alembic/versions/002_food_module.py
+# alembic/versions/003_grocery_module.py
+# alembic/versions/004_cab_module.py  ← added in Phase 2</pre>
+
+  <h3>Production Infrastructure</h3>
+  <div class="card">
+    <div class="phase-items">
+      <b>API Layer:</b> AWS ECS (Fargate) or GCP Cloud Run — auto-scaling containers<br>
+      <b>Database:</b> AWS RDS PostgreSQL (Multi-AZ) or Supabase for managed PG<br>
+      <b>Cache:</b> AWS ElastiCache Redis or Upstash Redis<br>
+      <b>File Storage:</b> AWS S3 + CloudFront CDN for product images<br>
+      <b>Monitoring:</b> Sentry (errors), Datadog/Grafana (metrics), Uptime Robot (health checks)<br>
+      <b>Secrets:</b> AWS Secrets Manager or Doppler — never hardcoded in env files<br>
+      <b>Mobile Builds:</b> EAS Build (Expo) → TestFlight (iOS) + Play Store internal (Android)
+    </div>
+  </div>
+</div>
+</div>
+
+<script>
+function show(id, btn) {
+  document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+  btn.classList.add('active');
+}
+</script>

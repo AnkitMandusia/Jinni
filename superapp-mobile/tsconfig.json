@@ -1,0 +1,23 @@
+{
+  "extends": "expo/tsconfig.base",
+  "compilerOptions": {
+    "strict": true,
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["src/*"],
+      "@components/*": ["src/shared/components/*"],
+      "@navigation/*": ["src/shared/navigation/*"],
+      "@services/*": ["src/shared/services/*"],
+      "@store/*": ["src/shared/store/*"],
+      "@theme/*": ["src/shared/theme/*"],
+      "@utils/*": ["src/shared/utils/*"],
+      "@assets/*": ["assets/*"],
+      "@modules/*": ["src/modules/*"],
+      "@auth/*": ["src/auth/*"],
+      "@shared/*": ["src/shared/*"]
+    },
+    "types": ["styled-components-react-native"]
+  },
+  "include": ["**/*.ts", "**/*.tsx"],
+  "exclude": ["node_modules"]
+}

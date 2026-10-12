@@ -1,0 +1,653 @@
+
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:var(--font-sans);color:var(--color-text-primary);font-size:14px}
+.tabs{display:flex;flex-wrap:wrap;gap:5px;padding:10px 0 8px;border-bottom:0.5px solid var(--color-border-tertiary);position:sticky;top:0;background:var(--color-background-primary);z-index:10;margin-bottom:18px}
+.tab{font-size:12px;padding:4px 11px;border:0.5px solid var(--color-border-secondary);border-radius:20px;cursor:pointer;color:var(--color-text-secondary);background:transparent;transition:all .15s}
+.tab:hover{background:var(--color-background-secondary);color:var(--color-text-primary)}
+.tab.active{background:var(--color-text-primary);color:var(--color-background-primary);border-color:var(--color-text-primary)}
+.sec{display:none}.sec.active{display:block}
+h2{font-size:18px;font-weight:500;margin-bottom:3px}
+h3{font-size:14px;font-weight:500;margin:16px 0 6px}
+p{font-size:13px;line-height:1.6;color:var(--color-text-secondary);margin-bottom:8px}
+.sub{font-size:12px;color:var(--color-text-tertiary);margin-bottom:14px}
+pre{background:var(--color-background-secondary);border:0.5px solid var(--color-border-tertiary);border-radius:var(--border-radius-md);padding:11px 13px;font-family:var(--font-mono);font-size:11.5px;line-height:1.7;overflow-x:auto;margin:6px 0 12px;color:var(--color-text-primary);white-space:pre}
+code{font-family:var(--font-mono);font-size:12px;background:var(--color-background-secondary);padding:1px 5px;border-radius:4px}
+.badge{display:inline-block;font-size:11px;padding:2px 8px;border-radius:10px;font-weight:500}
+.b-green{background:var(--color-background-success);color:var(--color-text-success)}
+.b-amber{background:var(--color-background-warning);color:var(--color-text-warning)}
+.b-blue{background:var(--color-background-info);color:var(--color-text-info)}
+.b-red{background:var(--color-background-danger);color:var(--color-text-danger)}
+.card{background:var(--color-background-primary);border:0.5px solid var(--color-border-tertiary);border-radius:var(--border-radius-lg);padding:13px 15px;margin-bottom:10px}
+.card-hd{display:flex;align-items:center;justify-content:space-between;margin-bottom:6px}
+.card-title{font-size:13px;font-weight:500}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:8px 0}
+.grid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:7px;margin:8px 0}
+.mc{background:var(--color-background-secondary);border-radius:var(--border-radius-md);padding:9px 11px}
+.mc .lbl{font-size:11px;color:var(--color-text-tertiary);margin-bottom:2px;text-transform:uppercase;letter-spacing:.04em}
+.mc .val{font-size:12px;font-weight:500}
+.phase{border-left:3px solid;padding:9px 13px;margin-bottom:9px;border-radius:0 var(--border-radius-md) var(--border-radius-md) 0}
+.ph1{border-color:#1D9E75;background:#E1F5EE}.ph2{border-color:#BA7517;background:#FAEEDA}.ph3{border-color:#534AB7;background:#EEEDFE}
+@media(prefers-color-scheme:dark){.ph1{background:#04342C}.ph2{background:#412402}.ph3{background:#26215C}}
+.ph-title{font-size:13px;font-weight:500;margin-bottom:3px}
+.ph1 .ph-title{color:#085041}.ph2 .ph-title{color:#633806}.ph3 .ph-title{color:#26215C}
+@media(prefers-color-scheme:dark){.ph1 .ph-title{color:#9FE1CB}.ph2 .ph-title{color:#FAC775}.ph3 .ph-title{color:#CECBF6}}
+.ph-body{font-size:12px;color:var(--color-text-secondary);line-height:1.8}
+.tag-row{display:flex;flex-wrap:wrap;gap:5px;margin:5px 0}
+.tag{font-size:11px;padding:2px 8px;border-radius:10px;border:0.5px solid var(--color-border-secondary);color:var(--color-text-secondary)}
+.tbl-wrap{overflow-x:auto;margin:7px 0}
+table{width:100%;font-size:12px;border-collapse:collapse}
+th{text-align:left;padding:6px 9px;font-weight:500;font-size:11px;color:var(--color-text-secondary);border-bottom:0.5px solid var(--color-border-tertiary)}
+td{padding:6px 9px;border-bottom:0.5px solid var(--color-border-tertiary);color:var(--color-text-secondary);vertical-align:top}
+tr:last-child td{border-bottom:none}
+.step{display:flex;gap:10px;margin-bottom:10px;align-items:flex-start}
+.step-num{min-width:22px;height:22px;border-radius:50%;background:var(--color-background-secondary);border:0.5px solid var(--color-border-secondary);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:500;color:var(--color-text-secondary)}
+.step-body{flex:1}
+.step-title{font-size:13px;font-weight:500;margin-bottom:2px}
+.step-desc{font-size:12px;color:var(--color-text-secondary);line-height:1.6}
+.alert{padding:9px 12px;border-radius:var(--border-radius-md);font-size:12px;margin:8px 0;line-height:1.6}
+.alert-info{background:var(--color-background-info);color:var(--color-text-info);border:0.5px solid var(--color-border-info)}
+.alert-warn{background:var(--color-background-warning);color:var(--color-text-warning);border:0.5px solid var(--color-border-warning)}
+.alert-success{background:var(--color-background-success);color:var(--color-text-success);border:0.5px solid var(--color-border-success)}
+.divider{border:none;border-top:0.5px solid var(--color-border-tertiary);margin:14px 0}
+.role-card{border:0.5px solid var(--color-border-tertiary);border-radius:var(--border-radius-lg);padding:11px 14px;margin-bottom:8px}
+.role-name{font-size:13px;font-weight:500;margin-bottom:4px}
+.role-fields{font-size:12px;color:var(--color-text-secondary);line-height:1.7}
+.perm-row{display:flex;align-items:center;gap:6px;font-size:12px;padding:4px 0;border-bottom:0.5px solid var(--color-border-tertiary)}
+.perm-row:last-child{border:none}
+.dot{width:7px;height:7px;border-radius:50%;flex-shrink:0}
+.dg{background:#1D9E75}.dr{background:#E24B4A}.dy{background:#BA7517}
+</style>
+
+<div class="tabs" id="tabs">
+  <button class="tab active" onclick="show('roles',this)">Signup &amp; Roles</button>
+  <button class="tab" onclick="show('auth',this)">Auth Architecture</button>
+  <button class="tab" onclick="show('orderflow',this)">Order Dispatch Flow</button>
+  <button class="tab" onclick="show('dashboards',this)">Dashboards</button>
+  <button class="tab" onclick="show('permissions',this)">Permissions</button>
+  <button class="tab" onclick="show('notifications',this)">Notification System</button>
+  <button class="tab" onclick="show('gaps',this)">Gaps Fixed</button>
+  <button class="tab" onclick="show('schema',this)">Schema Updates</button>
+</div>
+
+<!-- SIGNUP & ROLES -->
+<div class="sec active" id="roles">
+  <h2>Multi-role signup flow</h2>
+  <p class="sub">Ek hi app — role select karo, uske hisaab se form aur dashboard milega</p>
+
+  <h3>Step 1 — Role selection screen (sabse pehle)</h3>
+  <div class="grid3">
+    <div class="role-card">
+      <div class="role-name">Customer <span class="badge b-green">MVP</span></div>
+      <div class="role-fields">First name, last name, email, phone, address → Customer home (food + grocery)</div>
+    </div>
+    <div class="role-card">
+      <div class="role-name">Store / Grocery <span class="badge b-green">MVP</span></div>
+      <div class="role-fields">Owner name, store name, GSTIN, address, bank details, FSSAI license → Store dashboard</div>
+    </div>
+    <div class="role-card">
+      <div class="role-name">Restaurant <span class="badge b-green">MVP</span></div>
+      <div class="role-fields">Owner name, restaurant name, GSTIN, address, cuisine type, FSSAI, bank → Restaurant dashboard</div>
+    </div>
+    <div class="role-card">
+      <div class="role-name">Delivery Boy <span class="badge b-green">MVP</span></div>
+      <div class="role-fields">Name, phone, vehicle type, license no., Aadhaar, bank details → Delivery agent app</div>
+    </div>
+    <div class="role-card">
+      <div class="role-name">Cab Driver <span class="badge b-amber">Phase 2</span></div>
+      <div class="role-fields">Name, phone, license, vehicle RC, insurance, Aadhaar → Driver dashboard</div>
+    </div>
+    <div class="role-card">
+      <div class="role-name">Salon / Barber <span class="badge b-amber">Phase 3</span></div>
+      <div class="role-fields">Owner, shop name, services offered, slot config, address, bank → Salon dashboard</div>
+    </div>
+  </div>
+
+  <div class="alert alert-info"><i class="ti ti-info-circle" aria-hidden="true" style="margin-right:5px"></i> Har role ke liye alag <code>role_profiles</code> table hogi. Common fields <code>users</code> table mein, role-specific fields alag table mein — jaise <code>restaurant_profiles</code>, <code>store_profiles</code>, <code>driver_profiles</code>.</div>
+
+  <h3>Step 2 — Dynamic form (role ke hisaab se)</h3>
+  <pre>// React Native — RoleSignupScreen.tsx
+const ROLE_FIELDS = {
+  customer:  ['first_name','last_name','email','phone','address'],
+  store:     ['owner_name','store_name','gstin','fssai','address','bank_ifsc','bank_account'],
+  restaurant:['owner_name','restaurant_name','gstin','fssai','cuisine_type','address','bank_ifsc'],
+  delivery:  ['name','phone','vehicle_type','license_no','aadhaar','bank_ifsc'],
+  cab_driver:['name','phone','license_no','vehicle_rc','insurance_no','aadhaar'],
+  salon:     ['owner_name','shop_name','services_offered','address','bank_ifsc'],
+}
+
+// Screen 1: RoleSelectScreen → user picks role
+// Screen 2: DynamicSignupForm → renders ROLE_FIELDS[selectedRole]
+// Screen 3: OTP Verify → verifies phone
+// Screen 4: Approval pending (for store/restaurant/driver — admin approves)
+// Screen 5: Role-specific dashboard</pre>
+
+  <h3>Approval workflow for B-side roles</h3>
+  <div class="step"><div class="step-num">1</div><div class="step-body"><div class="step-title">Signup complete</div><div class="step-desc">Store/restaurant/driver ne form fill kiya → status = <code>pending_approval</code></div></div></div>
+  <div class="step"><div class="step-num">2</div><div class="step-body"><div class="step-title">Admin ko notification</div><div class="step-desc">Firebase → Admin panel mein new registration alert, documents review ke liye</div></div></div>
+  <div class="step"><div class="step-num">3</div><div class="step-body"><div class="step-title">Admin approve/reject</div><div class="step-desc">Admin panel se approve karo → status = <code>active</code>, reject karo → reason ke saath</div></div></div>
+  <div class="step"><div class="step-num">4</div><div class="step-body"><div class="step-title">Partner ko notification</div><div class="step-desc">SMS + push notification: "Aapka account approve ho gaya" ya "Rejected: [reason]"</div></div></div>
+</div>
+
+<!-- AUTH ARCHITECTURE -->
+<div class="sec" id="auth">
+  <h2>Auth architecture</h2>
+  <p class="sub">Phone OTP primary — Google/Apple optional. Role-based JWT claims. Free tools only.</p>
+
+  <h3>Primary auth: Phone OTP (free tier)</h3>
+  <div class="grid2">
+    <div class="mc"><div class="lbl">OTP Provider (Free)</div><div class="val">MSG91 / Twilio Trial / Firebase Phone Auth</div></div>
+    <div class="mc"><div class="lbl">Token Strategy</div><div class="val">JWT access (15 min) + Refresh (30 days)</div></div>
+    <div class="mc"><div class="lbl">Token Storage</div><div class="val">Secure storage (expo-secure-store)</div></div>
+    <div class="mc"><div class="lbl">Blacklist</div><div class="val">Redis SET for revoked refresh tokens</div></div>
+  </div>
+
+  <div class="alert alert-success"><i class="ti ti-currency-rupee" aria-hidden="true" style="margin-right:5px"></i> <strong>Free recommendation:</strong> Firebase Phone Auth — 10,000 verifications/month free. India ke liye perfect. No credit card required for start.</div>
+
+  <h3>JWT payload design (role-based claims)</h3>
+  <pre>{
+  "sub": "user-uuid-here",
+  "role": "customer",           // customer | store | restaurant | delivery | cab_driver | salon | admin
+  "profile_id": "profile-uuid", // role-specific profile UUID
+  "status": "active",           // pending_approval | active | suspended
+  "permissions": ["order:read", "order:place"],
+  "iat": 1700000000,
+  "exp": 1700000900             // 15 min access token
+}
+
+// Refresh token → stored in Redis: refresh:{user_id} = token_hash
+// On logout: DEL refresh:{user_id}
+// On suspicious activity: DEL all refresh:{user_id}:*</pre>
+
+  <h3>Auth flow diagram</h3>
+  <pre>User enters phone
+    ↓
+POST /auth/send-otp
+  → Firebase Phone Auth ya MSG91 se OTP bhejo
+    ↓
+User enters OTP
+    ↓
+POST /auth/verify-otp
+  → OTP valid? → check users table
+    → New user? → profile_complete = false, role = null
+    → Existing user? → return tokens directly
+    ↓
+New user → role select screen
+    ↓
+POST /auth/complete-profile  {role, ...fields}
+  → Create role-specific profile row
+  → If role = store/restaurant/driver → status = pending_approval
+  → If role = customer → status = active
+    ↓
+Return { access_token, refresh_token, role, dashboard_route }</pre>
+
+  <h3>Social login (optional — Phase 2)</h3>
+  <pre># Free options:
+# Google Sign-In → @react-native-google-signin/google-signin (free)
+# Apple Sign-In  → @invertase/react-native-apple-authentication (free, required for iOS)
+
+# Backend: verify Google ID token
+from google.oauth2 import id_token
+from google.auth.transport import requests
+
+def verify_google_token(token: str):
+    idinfo = id_token.verify_oauth2_token(token, requests.Request(), GOOGLE_CLIENT_ID)
+    return idinfo['email'], idinfo['sub']
+
+# Link social account to existing phone user (same user can have both)</pre>
+
+  <h3>Session management for different dashboards</h3>
+  <pre># FastAPI dependency — role guard
+def require_role(*roles: str):
+    def checker(current_user = Depends(get_current_user)):
+        if current_user.role not in roles:
+            raise HTTPException(403, "Access denied for this role")
+        if current_user.status != "active":
+            raise HTTPException(403, f"Account {current_user.status}")
+        return current_user
+    return checker
+
+# Usage in routers:
+@router.get("/store/dashboard")
+async def store_dashboard(user = Depends(require_role("store", "admin"))):
+    ...
+
+@router.post("/orders/{id}/accept")
+async def accept_order(user = Depends(require_role("store", "restaurant"))):
+    ...</pre>
+
+  <h3>Mobile — dashboard routing after login</h3>
+  <pre>// After auth, navigate based on role:
+const DASHBOARD_ROUTES = {
+  customer:   'CustomerHome',
+  store:      'StoreDashboard',
+  restaurant: 'RestaurantDashboard',
+  delivery:   'DeliveryAgentDashboard',
+  cab_driver: 'DriverDashboard',
+  salon:      'SalonDashboard',
+  admin:      'AdminPanel',  
+}
+
+// Pending approval → show PendingApprovalScreen
+if (user.status === 'pending_approval') {
+  navigate('PendingApproval', { role: user.role })
+}</pre>
+</div>
+
+<!-- ORDER DISPATCH FLOW -->
+<div class="sec" id="orderflow">
+  <h2>Grocery order dispatch flow</h2>
+  <p class="sub">Race-to-accept model — jo pehle accept kare uska order, baaki ko cancel notification</p>
+
+  <h3>Complete flow: Customer → Stores → Delivery → Customer</h3>
+  <div class="step"><div class="step-num">1</div><div class="step-body"><div class="step-title">Customer places order</div><div class="step-desc">POST /grocery/orders → inventory reserved (reserved_qty++) → order status = <code>pending_dispatch</code></div></div></div>
+  <div class="step"><div class="step-num">2</div><div class="step-body"><div class="step-title">Nearest stores ko broadcast</div><div class="step-desc">Backend: radius ke andar sabhi active stores dhundho (PostGIS ya haversine formula) → sabhi ko simultaneously Firebase FCM notification bhejo with <code>accept_timeout = 45 seconds</code></div></div></div>
+  <div class="step"><div class="step-num">3</div><div class="step-body"><div class="step-title">Store accepts (race condition handled)</div><div class="step-desc">POST /orders/{id}/store-accept → Redis distributed lock use karo → pehla accept winner → order status = <code>store_accepted</code>, store_id set karo</div></div></div>
+  <div class="step"><div class="step-num">4</div><div class="step-body"><div class="step-title">Baaki stores ko cancel notification</div><div class="step-desc">FCM multicast → "Yeh order kisi aur ne le liya" → unke app se accept button disappear</div></div></div>
+  <div class="step"><div class="step-num">5</div><div class="step-body"><div class="step-title">Customer ko confirmation</div><div class="step-desc">FCM push → "Order confirm! [Store Name] prepare kar raha hai" + estimated time</div></div></div>
+  <div class="step"><div class="step-num">6</div><div class="step-body"><div class="step-title">Delivery agent assign</div><div class="step-desc">Nearest available agent dhundo → FCM notification → agent accepts → customer + admin ko update</div></div></div>
+  <div class="step"><div class="step-num">7</div><div class="step-body"><div class="step-title">Live tracking</div><div class="step-desc">Delivery agent app → POST /delivery/location (every 10s) → Redis mein store → customer + admin WebSocket se live dekh sakte hain</div></div></div>
+  <div class="step"><div class="step-num">8</div><div class="step-body"><div class="step-title">Order delivered</div><div class="step-desc">Agent marks delivered → OTP confirm ya photo proof → order = <code>delivered</code> → payment settle → rating prompt</div></div></div>
+
+  <div class="alert alert-warn"><i class="ti ti-clock" aria-hidden="true" style="margin-right:5px"></i> <strong>Timeout handling:</strong> Agar 45 seconds mein koi store accept na kare → auto-expand radius → phir broadcast. 3 attempts ke baad → order = <code>no_store_available</code> → customer ko notification + auto-refund.</div>
+
+  <h3>Race condition fix — Redis distributed lock</h3>
+  <pre># app/modules/grocery/service.py
+import redis
+import uuid
+
+async def accept_order_by_store(order_id: str, store_id: str, redis_client: Redis):
+    lock_key = f"order_accept_lock:{order_id}"
+    lock_value = str(uuid.uuid4())
+
+    # Try to acquire lock (SET NX EX) — atomic
+    acquired = await redis_client.set(lock_key, lock_value, nx=True, ex=10)
+
+    if not acquired:
+        raise HTTPException(409, "Order already accepted by another store")
+
+    try:
+        # Double-check in DB (still pending?)
+        order = await db.get(Order, order_id)
+        if order.status != 'pending_dispatch':
+            raise HTTPException(409, "Order no longer available")
+
+        # Assign store
+        order.store_id = store_id
+        order.status = 'store_accepted'
+        await db.commit()
+
+        # Notify other stores: cancel their pending notification
+        await cancel_other_store_notifications(order_id, store_id)
+        return order
+    finally:
+        # Release lock only if we own it
+        if await redis_client.get(lock_key) == lock_value:
+            await redis_client.delete(lock_key)</pre>
+
+  <h3>Food order flow (restaurant — simpler)</h3>
+  <p>Food mein broadcast nahi hota — customer specific restaurant choose karta hai. Flow: Customer places order → Restaurant ko FCM → Restaurant accept/reject → Delivery assign → Tracking → Delivered. Same tracking infrastructure, no race condition.</p>
+</div>
+
+<!-- DASHBOARDS -->
+<div class="sec" id="dashboards">
+  <h2>Role-specific dashboards</h2>
+  <p class="sub">Ek app, alag-alag view — role ke hisaab se completely different UI</p>
+
+  <h3>Customer dashboard</h3>
+  <div class="card">
+    <div class="card-hd"><span class="card-title">CustomerHome</span><span class="badge b-green">MVP</span></div>
+    <div class="ph-body">Service cards (Food / Grocery / Cab / Salon) → category browse → cart → orders tab → live tracking screen → profile</div>
+  </div>
+
+  <h3>Store / Grocery owner dashboard</h3>
+  <div class="card">
+    <div class="card-hd"><span class="card-title">StoreDashboard</span><span class="badge b-green">MVP</span></div>
+    <div class="ph-body">
+      <strong>Incoming orders panel</strong> — real-time FCM se aane wale orders, Accept/Reject button with 45s timer<br>
+      <strong>Active orders</strong> — currently preparing orders, mark ready for pickup<br>
+      <strong>My products</strong> — apne store ke products list karo (agar vendor-specific model hai) ya app products dekho<br>
+      <strong>Earnings</strong> — today/week/month settlements<br>
+      <strong>Store settings</strong> — open/close toggle, delivery radius, timing
+    </div>
+  </div>
+
+  <h3>Restaurant owner dashboard</h3>
+  <div class="card">
+    <div class="card-hd"><span class="card-title">RestaurantDashboard</span><span class="badge b-green">MVP</span></div>
+    <div class="ph-body">
+      <strong>Orders queue</strong> — new → preparing → ready states, kitchen display mode<br>
+      <strong>Menu manager</strong> — items add/edit/toggle available, categories manage<br>
+      <strong>Analytics</strong> — popular items, peak hours, revenue<br>
+      <strong>Profile</strong> — timing, holiday mode, photos
+    </div>
+  </div>
+
+  <h3>Delivery agent app</h3>
+  <div class="card">
+    <div class="card-hd"><span class="card-title">DeliveryAgentDashboard</span><span class="badge b-green">MVP</span></div>
+    <div class="ph-body">
+      <strong>Go online/offline toggle</strong> — sirf online hone par assignments milenge<br>
+      <strong>Incoming assignment</strong> — FCM notification, pickup location, accept/decline (30s)<br>
+      <strong>Active delivery</strong> — navigation map (Google Maps), pickup address → delivery address<br>
+      <strong>Earnings today</strong> — completed orders, earnings, cod collected<br>
+      <strong>Order proof</strong> — photo on delivery ya OTP confirm
+    </div>
+  </div>
+
+  <h3>Admin — single web panel (React + Ant Design)</h3>
+  <div class="card">
+    <div class="card-hd"><span class="card-title">Admin Panel</span><span class="badge b-blue">Web only</span></div>
+    <div class="ph-body">
+      <strong>Live dashboard</strong> — active orders map, real-time counts, alerts<br>
+      <strong>Orders manager</strong> — all module orders, filter/search, manual override status<br>
+      <strong>User manager</strong> — approve/reject partners, suspend accounts, view profiles<br>
+      <strong>Grocery inventory</strong> — product CRUD (admin only or delegated), bulk CSV upload, stock alerts<br>
+      <strong>Restaurant/Store manager</strong> — approve new vendors, manage listings<br>
+      <strong>Financial</strong> — payouts, Razorpay reconciliation, COD tracking<br>
+      <strong>Notifications</strong> — broadcast push to all users / specific role
+    </div>
+  </div>
+</div>
+
+<!-- PERMISSIONS -->
+<div class="sec" id="permissions">
+  <h2>Permission system</h2>
+  <p class="sub">RBAC — role-based, with admin override and granular product edit permissions</p>
+
+  <h3>Who can edit products?</h3>
+  <div class="alert alert-info">Aapne specifically poocha — product edit sirf admin kare ya store bhi? Answer: <strong>configurable permission</strong>. Default = admin only. Admin specific store ko grant kar sakta hai.</div>
+
+  <div class="card">
+    <div class="card-title" style="margin-bottom:8px">Product edit permissions</div>
+    <div class="perm-row"><div class="dot dg"></div><strong style="min-width:130px;font-size:12px">Super Admin</strong><span style="font-size:12px;color:var(--color-text-secondary)">Full CRUD on all products, categories, prices, images</span></div>
+    <div class="perm-row"><div class="dot dy"></div><strong style="min-width:130px;font-size:12px">Store (if granted)</strong><span style="font-size:12px;color:var(--color-text-secondary)">Edit only: availability toggle, stock update. Price/image change = pending admin review</span></div>
+    <div class="perm-row"><div class="dot dy"></div><strong style="min-width:130px;font-size:12px">Restaurant (own menu)</strong><span style="font-size:12px;color:var(--color-text-secondary)">Full CRUD on their own menu items only. Cannot see other restaurants.</span></div>
+    <div class="perm-row"><div class="dot dr"></div><strong style="min-width:130px;font-size:12px">Delivery Agent</strong><span style="font-size:12px;color:var(--color-text-secondary)">No product access. Only orders assigned to them.</span></div>
+    <div class="perm-row"><div class="dot dr"></div><strong style="min-width:130px;font-size:12px">Customer</strong><span style="font-size:12px;color:var(--color-text-secondary)">Read only. Cannot edit any product.</span></div>
+  </div>
+
+  <h3>Permission model in DB + code</h3>
+  <pre>-- permissions table (fine-grained control)
+CREATE TABLE role_permissions (
+    id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    role        VARCHAR(50),          -- 'store', 'restaurant'
+    resource    VARCHAR(100),         -- 'product', 'menu_item', 'order'
+    action      VARCHAR(50),          -- 'read', 'create', 'update', 'delete'
+    scope       VARCHAR(50),          -- 'own' | 'all' | 'none'
+    conditions  JSONB                 -- {"fields": ["is_available","stock_qty"]}
+);
+
+-- user_overrides: specific user ko extra/less permission
+CREATE TABLE user_permission_overrides (
+    user_id     UUID REFERENCES users(id),
+    resource    VARCHAR(100),
+    action      VARCHAR(50),
+    granted     BOOLEAN DEFAULT TRUE,
+    granted_by  UUID REFERENCES users(id),  -- admin who granted
+    expires_at  TIMESTAMPTZ
+);</pre>
+
+  <pre># FastAPI permission checker
+def can_edit_product(user: User, product: Product, field: str) -> bool:
+    if user.role == 'admin':
+        return True
+    if user.role == 'store':
+        # Check if admin granted this store product edit permission
+        override = get_user_override(user.id, 'product', 'update')
+        if not override:
+            return False
+        # Even if granted, only specific fields
+        allowed_fields = ['is_active', 'stock_quantity']
+        return field in allowed_fields
+    if user.role == 'restaurant':
+        # Can only edit their own menu items
+        return product.restaurant_id == user.profile.restaurant_id
+    return False</pre>
+
+  <h3>Full permissions matrix</h3>
+  <div class="tbl-wrap">
+  <table>
+    <tr><th>Action</th><th>Admin</th><th>Store</th><th>Restaurant</th><th>Delivery</th><th>Customer</th></tr>
+    <tr><td>View all orders</td><td><span class="badge b-green">Yes</span></td><td>Own only</td><td>Own only</td><td>Assigned</td><td>Own only</td></tr>
+    <tr><td>Edit grocery products</td><td><span class="badge b-green">Full</span></td><td>If granted (limited)</td><td><span class="badge b-red">No</span></td><td><span class="badge b-red">No</span></td><td><span class="badge b-red">No</span></td></tr>
+    <tr><td>Edit menu items</td><td><span class="badge b-green">Full</span></td><td><span class="badge b-red">No</span></td><td>Own restaurant</td><td><span class="badge b-red">No</span></td><td><span class="badge b-red">No</span></td></tr>
+    <tr><td>Approve partners</td><td><span class="badge b-green">Yes</span></td><td><span class="badge b-red">No</span></td><td><span class="badge b-red">No</span></td><td><span class="badge b-red">No</span></td><td><span class="badge b-red">No</span></td></tr>
+    <tr><td>Accept orders</td><td>Override</td><td>Own radius</td><td>Own restaurant</td><td>Assigned</td><td><span class="badge b-red">No</span></td></tr>
+    <tr><td>View earnings</td><td>All</td><td>Own store</td><td>Own restaurant</td><td>Own</td><td><span class="badge b-red">No</span></td></tr>
+    <tr><td>Broadcast notifications</td><td><span class="badge b-green">Yes</span></td><td><span class="badge b-red">No</span></td><td><span class="badge b-red">No</span></td><td><span class="badge b-red">No</span></td><td><span class="badge b-red">No</span></td></tr>
+  </table>
+  </div>
+</div>
+
+<!-- NOTIFICATIONS -->
+<div class="sec" id="notifications">
+  <h2>Notification system</h2>
+  <p class="sub">Firebase FCM — multi-target, typed notifications, delivery confirmation</p>
+
+  <h3>Notification types by event</h3>
+  <div class="tbl-wrap">
+  <table>
+    <tr><th>Event</th><th>Who receives</th><th>Type</th><th>Action in app</th></tr>
+    <tr><td>Order placed</td><td>Nearby stores + Admin</td><td>FCM Data</td><td>Accept/Reject button (45s timer)</td></tr>
+    <tr><td>Store accepts</td><td>Customer + other stores (cancel)</td><td>FCM Notification</td><td>Customer: tracking screen. Others: dismiss</td></tr>
+    <tr><td>Order ready</td><td>Delivery agents (nearby)</td><td>FCM Data</td><td>Accept assignment button</td></tr>
+    <tr><td>Agent accepts</td><td>Customer + Store</td><td>FCM Notification</td><td>Customer: see agent name + live map</td></tr>
+    <tr><td>Agent picked up</td><td>Customer + Admin</td><td>FCM Notification</td><td>Customer: "On the way" status</td></tr>
+    <tr><td>Delivered</td><td>Customer + Admin</td><td>FCM Notification</td><td>Rate order prompt</td></tr>
+    <tr><td>Payment failed</td><td>Customer</td><td>FCM + SMS</td><td>Retry payment screen</td></tr>
+    <tr><td>New partner signup</td><td>Admin</td><td>FCM + Email</td><td>Admin panel alert</td></tr>
+    <tr><td>Low stock alert</td><td>Admin</td><td>Email + FCM</td><td>Admin panel: restock banner</td></tr>
+  </table>
+  </div>
+
+  <h3>FCM implementation</h3>
+  <pre># app/modules/notifications/service.py
+from firebase_admin import messaging
+from enum import Enum
+
+class NotifType(str, Enum):
+    ORDER_INCOMING    = "order_incoming"    # Store ko — actionable
+    ORDER_CANCELLED   = "order_cancelled"   # Other stores ko
+    AGENT_ASSIGNED    = "agent_assigned"    # Customer ko
+    ORDER_DELIVERED   = "order_delivered"   # Customer ko
+    PARTNER_APPROVED  = "partner_approved"  # Store/restaurant ko
+
+async def send_to_stores_broadcast(order_id: str, nearby_store_tokens: list[str]):
+    """Sab nearby stores ko ek saath bhejo"""
+    message = messaging.MulticastMessage(
+        tokens=nearby_store_tokens,
+        data={
+            "type": NotifType.ORDER_INCOMING,
+            "order_id": order_id,
+            "accept_url": f"/orders/{order_id}/store-accept",
+            "timeout_seconds": "45",
+        },
+        android=messaging.AndroidConfig(
+            priority="high",
+            ttl=45,           # 45s ke baad FCM discard kar de
+        ),
+        apns=messaging.APNSConfig(
+            headers={"apns-priority": "10", "apns-expiration": "45"}
+        )
+    )
+    response = messaging.send_each_for_multicast(message)
+    return response
+
+async def cancel_pending_store_notifications(order_id: str, winner_store_id: str):
+    """Baaki stores ko cancel bhejo"""
+    other_tokens = get_other_store_tokens(order_id, exclude=winner_store_id)
+    messaging.MulticastMessage(
+        tokens=other_tokens,
+        data={"type": NotifType.ORDER_CANCELLED, "order_id": order_id}
+    )</pre>
+
+  <h3>In-app notification bell</h3>
+  <pre># Store karo DB mein bhi — user notifications history ke liye
+CREATE TABLE notifications (
+    id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id     UUID REFERENCES users(id),
+    type        VARCHAR(100),
+    title       VARCHAR(255),
+    body        TEXT,
+    data        JSONB,         -- {order_id, action_url, etc.}
+    is_read     BOOLEAN DEFAULT FALSE,
+    sent_at     TIMESTAMPTZ DEFAULT NOW()
+);
+CREATE INDEX idx_notif_user ON notifications(user_id, sent_at DESC, is_read);</pre>
+
+  <h3>Admin live dashboard — WebSocket</h3>
+  <pre># FastAPI WebSocket for admin real-time updates
+@app.websocket("/ws/admin/live")
+async def admin_live(websocket: WebSocket, token: str):
+    await verify_admin_token(token)
+    await manager.connect(websocket, room="admin")
+    try:
+        while True:
+            # Push events: new_order, order_status_change, agent_location
+            await websocket.receive_text()  # keepalive
+    except WebSocketDisconnect:
+        manager.disconnect(websocket)
+
+# Jab bhi order status change ho:
+await manager.broadcast_to_room("admin", {
+    "event": "order_update",
+    "order_id": order_id,
+    "status": new_status,
+    "module": "grocery"
+})</pre>
+</div>
+
+<!-- GAPS FIXED -->
+<div class="sec" id="gaps">
+  <h2>Gaps identified and fixed</h2>
+  <p class="sub">Pehle roadmap mein jo missing tha — sab cover kiya gaya</p>
+
+  <div class="phase ph1">
+    <div class="ph-title">Gap 1: Single app, multiple roles</div>
+    <div class="ph-body">Pehle plan mein separate apps the implicitly. Ab: ek React Native app, role detect karo JWT se, alag navigator stack serve karo. Customer, store, delivery — sab ek APK mein, sirf view alag.</div>
+  </div>
+  <div class="phase ph1">
+    <div class="ph-title">Gap 2: Store accept race condition</div>
+    <div class="ph-body">Multiple stores simultaneously accept karne ki koshish karenge. Fix: Redis distributed lock (SET NX EX) — atomic operation, first writer wins, guaranteed no double-accept.</div>
+  </div>
+  <div class="phase ph1">
+    <div class="ph-title">Gap 3: No-accept timeout</div>
+    <div class="ph-body">Koi store accept na kare toh? Celery beat task: har 45s mein check karo pending_dispatch orders → expand radius ya notify customer "no store available".</div>
+  </div>
+  <div class="phase ph1">
+    <div class="ph-title">Gap 4: Product edit permissions</div>
+    <div class="ph-body">Pehle hardcoded tha — sirf admin. Ab: <code>user_permission_overrides</code> table → admin kisi bhi store ko limited product edit permission de sakta hai (sirf availability/stock, price nahi).</div>
+  </div>
+  <div class="phase ph2">
+    <div class="ph-title">Gap 5: Partner approval workflow</div>
+    <div class="ph-body">Store/restaurant/driver signup ke baad seedha active nahi hone chahiye. Fix: <code>status = pending_approval</code> → admin review → approve → FCM notification to partner → active.</div>
+  </div>
+  <div class="phase ph2">
+    <div class="ph-title">Gap 6: Delivery OTP / proof</div>
+    <div class="ph-body">Delivery confirm kaise hoga? Fix: OTP-on-delivery (customer ko OTP milega, agent enter karega) ya photo proof (agent delivery photo upload kare). Both options configurable per module.</div>
+  </div>
+  <div class="phase ph2">
+    <div class="ph-title">Gap 7: COD reconciliation</div>
+    <div class="ph-body">Cash on delivery mein cash track nahi tha. Fix: <code>cod_collections</code> table — agent ki collected cash, settlement status, daily reconciliation report in admin panel.</div>
+  </div>
+  <div class="phase ph3">
+    <div class="ph-title">Gap 8: Admin WebSocket for live tracking</div>
+    <div class="ph-body">Admin ko sab orders simultaneously dekhne hain. Fix: WebSocket room "admin" → har order event, delivery agent location update push hota hai. Frontend: React + Leaflet/Google Maps embed.</div>
+  </div>
+  <div class="phase ph3">
+    <div class="ph-title">Gap 9: FCM token refresh</div>
+    <div class="ph-body">FCM token expire ya change hota rehta hai. Fix: Mobile app mein <code>onTokenRefresh</code> listener → POST /users/fcm-token → DB update. Stale token detection: FCM response mein <code>UNREGISTERED</code> aaye toh delete karo.</div>
+  </div>
+
+  <h3>Free tools used (koi paid service nahi)</h3>
+  <div class="tbl-wrap">
+  <table>
+    <tr><th>Purpose</th><th>Free Tool</th><th>Free Limit</th></tr>
+    <tr><td>Push notifications</td><td>Firebase FCM</td><td>Unlimited</td></tr>
+    <tr><td>Phone OTP</td><td>Firebase Phone Auth</td><td>10,000/month free</td></tr>
+    <tr><td>Maps / Navigation</td><td>Google Maps (dev)</td><td>$200 credit/month (~28k map loads)</td></tr>
+    <tr><td>Cache / Locks</td><td>Redis (Upstash free)</td><td>10,000 req/day free</td></tr>
+    <tr><td>Task queue</td><td>Celery + Redis</td><td>Self-hosted, free</td></tr>
+    <tr><td>DB hosting</td><td>Supabase free</td><td>500MB, 2 projects free</td></tr>
+    <tr><td>Backend hosting</td><td>Render free tier</td><td>512MB RAM, sleeps after 15min</td></tr>
+    <tr><td>Social login</td><td>Google/Apple SDK</td><td>Free</td></tr>
+  </table>
+  </div>
+</div>
+
+<!-- SCHEMA UPDATES -->
+<div class="sec" id="schema">
+  <h2>Schema updates</h2>
+  <p class="sub">New tables needed for all the new features</p>
+
+  <h3>Users + role profiles</h3>
+  <pre>CREATE TYPE user_role AS ENUM ('customer','store','restaurant','delivery','cab_driver','salon','admin');
+CREATE TYPE account_status AS ENUM ('pending_approval','active','suspended','rejected');
+
+ALTER TABLE users ADD COLUMN role         user_role;
+ALTER TABLE users ADD COLUMN status       account_status DEFAULT 'pending_approval';
+ALTER TABLE users ADD COLUMN profile_complete BOOLEAN DEFAULT FALSE;
+
+-- Role-specific profile tables
+CREATE TABLE store_profiles (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID REFERENCES users(id) UNIQUE,
+    store_name VARCHAR(255), gstin VARCHAR(20), fssai VARCHAR(20),
+    address_id UUID REFERENCES addresses(id),
+    bank_account VARCHAR(30), bank_ifsc VARCHAR(15),
+    delivery_radius_km FLOAT DEFAULT 5,
+    is_open BOOLEAN DEFAULT TRUE,
+    approved_by UUID REFERENCES users(id),
+    approved_at TIMESTAMPTZ
+);
+
+CREATE TABLE delivery_agent_profiles (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID REFERENCES users(id) UNIQUE,
+    vehicle_type VARCHAR(50), license_no VARCHAR(30),
+    aadhaar_no VARCHAR(20), bank_account VARCHAR(30), bank_ifsc VARCHAR(15),
+    is_available BOOLEAN DEFAULT FALSE,
+    current_lat DECIMAL(9,6), current_lng DECIMAL(9,6),
+    last_location_at TIMESTAMPTZ
+);</pre>
+
+  <h3>Order table additions</h3>
+  <pre>ALTER TABLE orders ADD COLUMN store_id UUID REFERENCES store_profiles(id);
+ALTER TABLE orders ADD COLUMN accept_timeout_at TIMESTAMPTZ;  -- 45s deadline
+ALTER TABLE orders ADD COLUMN accepted_at TIMESTAMPTZ;
+ALTER TABLE orders ADD COLUMN delivery_otp VARCHAR(6);        -- OTP for delivery confirm
+ALTER TABLE orders ADD COLUMN delivery_photo_url TEXT;
+ALTER TABLE orders ADD COLUMN cod_collected BOOLEAN DEFAULT FALSE;
+
+-- Store broadcast log (for race condition tracking)
+CREATE TABLE order_broadcast_log (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    order_id UUID REFERENCES orders(id),
+    store_id UUID REFERENCES store_profiles(id),
+    sent_at TIMESTAMPTZ DEFAULT NOW(),
+    response VARCHAR(20),       -- 'accepted' | 'declined' | 'timeout' | 'cancelled'
+    responded_at TIMESTAMPTZ
+);</pre>
+
+  <h3>COD reconciliation</h3>
+  <pre>CREATE TABLE cod_collections (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    order_id UUID REFERENCES orders(id) UNIQUE,
+    agent_id UUID REFERENCES delivery_agent_profiles(id),
+    amount NUMERIC(10,2),
+    collected_at TIMESTAMPTZ,
+    settled BOOLEAN DEFAULT FALSE,
+    settled_at TIMESTAMPTZ,
+    settlement_ref VARCHAR(100)
+);</pre>
+</div>
+
+<script>
+function show(id,btn){
+  document.querySelectorAll('.sec').forEach(s=>s.classList.remove('active'));
+  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+  btn.classList.add('active');
+}
+</script>

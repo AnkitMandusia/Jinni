@@ -1,0 +1,165 @@
+
+
+conda activate super
+
+python -m app.main
+"C:\redis\redis-server.exe"
+cloudflared tunnel --url http://localhost:8000
+
+
+python -m app.seed_data
+
+
+
+psql -U postgres
+CREATE DATABASE superapp;
+psql -U postgres -d superapp
+
+DROP SCHEMA public CASCADE;
+CREATE SCHEMA public;
+
+Restaurant: restaurant@test.com / Test@1234
+Delivery:   delivery@test.com   / Test@1234
+Salon:      salon@test.com      / Test@1234
+Cab Driver: cab@test.com        / Test@1234
+Store:      store@test.com      / Test@1234
+Admin:      mandusiaankit.005@gmail.com / Superadmin@2024
+
+Staging MID
+VYIpHX39739334648026  
+Test Key
+h9elZw_XQ_QTg4Ky
+
+
+
+
+
+New libraries needed
+None. Everything uses built-in React Native APIs (Modal, Vibration, Animated). No Expo rebuild or native module required.
+
+For full production background alerting (when app is killed or backgrounded), install expo-notifications — npx expo install expo-notifications — and wire its handler to call showAlert. That requires an EAS build but no code changes to the component itself.
+
+Feedback submitted
+
+
+
+
+
+
+
+add in mock mail and simple password for restaurent, delevery boy,salaon and cab  in database so i can login anytime with mock details Grocery order dispatch flow
+Race-to-accept model — jo pehle accept kare uska order, baaki ko cancel notification
+
+Complete flow: Customer → Stores → Delivery → Customer
+1
+Customer places order
+POST /grocery/orders → inventory reserved (reserved_qty++) → order status = pending_dispatch
+2
+Nearest stores ko broadcast
+Backend: radius ke andar sabhi active stores dhundho (PostGIS ya haversine formula) → sabhi ko simultaneously Firebase FCM notification bhejo with accept_timeout = 45 seconds
+3
+Store accepts (race condition handled)
+POST /orders/{id}/store-accept → Redis distributed lock use karo → pehla accept winner → order status = store_accepted, store_id set karo
+4
+Baaki stores ko cancel notification
+FCM multicast → "Yeh order kisi aur ne le liya" → unke app se accept button disappear
+5
+Customer ko confirmation
+FCM push → "Order confirm! [Store Name] prepare kar raha hai" + estimated time
+6
+Delivery agent assign
+Nearest available agent dhundo → FCM notification → agent accepts → customer + admin ko update
+7
+Live tracking
+Delivery agent app → POST /delivery/location (every 10s) → Redis mein store → customer + admin WebSocket se live dekh sakte hain
+8
+Order delivered
+Agent marks delivered → OTP confirm ya photo proof → order = delivered → payment settle → rating prompt
+Timeout handling: Agar 45 seconds mein koi store accept na kare → auto-expand radius → phir broadcast. 3 attempts ke baad → order = no_store_available → customer ko notification + auto-refund.
+Race condition fix — Redis distributed lock
+
+
+# app/modules/grocery/service.py
+import redis
+import uuid
+
+async def accept_order_by_store(order_id: str, store_id: str, redis_client: Redis):
+    lock_key = f"order_accept_lock:{order_id}"
+    lock_value = str(uuid.uuid4())
+
+    # Try to acquire lock (SET NX EX) — atomic
+    acquired = await redis_client.set(lock_key, lock_value, nx=True, ex=10)
+
+    if not acquired:
+        raise HTTPException(409, "Order already accepted by another store")
+
+    try:
+        # Double-check in DB (still pending?)
+        order = await db.get(Order, order_id)
+        if order.status != 'pending_dispatch':
+            raise HTTPException(409, "Order no longer available")
+
+        # Assign store
+        order.store_id = store_id
+        order.status = 'store_accepted'
+        await db.commit()
+
+        # Notify other stores: cancel their pending notification
+        await cancel_other_store_notifications(order_id, store_id)
+        return order
+    finally:
+        # Release lock only if we own it
+        if await redis_client.get(lock_key) == lock_value:
+            await redis_client.delete(lock_key)
+
+
+
+
+
+Role-specific dashboards
+Ek app, alag-alag view — role ke hisaab se completely different UI
+
+Customer dashboard
+CustomerHome
+MVP
+Service cards (Food / Grocery / Cab / Salon) → category browse → cart → orders tab → live tracking screen → profile
+Store / Grocery owner dashboard
+StoreDashboard
+MVP
+Incoming orders panel — real-time FCM se aane wale orders, Accept/Reject button with 45s timer
+Active orders — currently preparing orders, mark ready for pickup
+My products — apne store ke products list karo (agar vendor-specific model hai) ya app products dekho, give store permssion if they want to add new item , with name, decription, price ,image , then can delete item only they fethcehd , store cant delte an item which is fetched by other store or main admin.
+Earnings — today/week/month settlements
+Store settings — open/close toggle, delivery radius, timing
+Restaurant owner dashboard
+RestaurantDashboard
+MVP
+Orders queue — new → preparing → ready states, kitchen display mode
+Menu manager — items add/edit/toggle available, categories manage
+Analytics — popular items, peak hours, revenue
+Profile — timing, holiday mode, photos
+Delivery agent app
+DeliveryAgentDashboard
+MVP
+Go online/offline toggle — sirf online hone par assignments milenge
+Incoming assignment — FCM notification, pickup location, accept/decline (30s)
+Active delivery — navigation map (Google Maps), pickup address → delivery address
+Earnings today — completed orders, earnings, cod collected
+Order proof — photo on delivery ya OTP confirm
+Admin 
+Admin Panel
+
+Live dashboard — active orders map, real-time counts, alerts
+Orders manager — all module orders, filter/search, manual override status
+User manager — approve/reject partners, suspend accounts, view profiles
+Grocery inventory — product CRUD (admin only or delegated), bulk CSV upload, stock alerts
+Restaurant/Store manager — approve new vendors, manage listings
+Financial — payouts, Razorpay reconciliation, COD tracking
+Notifications — broadcast push to all users / specific role
+
+
+customer dashbaord , delviery, stores, and other are half done . make them complete as given flow . 
+also implement , location ,, according to detection by pincode or enable , according to location store/grocery item  can be shown to user . and for stores there shld be button view of prodcuts and in product there should be custom added product and Universal products , in custom they can add or remove product which they add  and availablle button,  but in univerioanl product , they cant edit product but hey can show available toggle . for a area by pincode ,  if product a not available for all store which registered  they the product should not show to custmer. for this when create store or restorent account take the pincode as well .
+
+and in store grocery dashboard  they can see pructs/item by catogory and can also edit by catogory but cant create new catogory,where main admin can have all permsion to edit and delete and add new product /catagory
+check the existing worked done .  speically backend, , analysis, make a plan, then excecute , as you are senior software engineer and developer,

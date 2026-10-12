@@ -1,0 +1,9 @@
+**/node_modules/
+**/.expo/
+**/.env
+**/.env.*
+!**/.env.example
+
+# Private credentials
+superapp-backend/firebase-credentials.json
+superapp-backend/google-services.json

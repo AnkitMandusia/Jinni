@@ -1,0 +1,39 @@
+{
+  "_comment": "Maps a logical PhraseKey (superapp-mobile/src/modules/jinni/services/jinniPhrases.ts) to one or more WAV files under superapp-mobile/assets/audio/jinni/hi-IN/<folder>/<file>. A phraseKey can list several files — audioPlayer picks one at random each time that phrase is spoken, so repeated phrases (e.g. 'thinking', heard on every wish) don't sound identical every time. This file is hand-edited — add/change a row here, then run `node scripts/generate-jinni-phrase-registry.js` from superapp-mobile/ to regenerate phraseRegistry.generated.ts. A row whose file does not actually exist on disk is safely skipped by the generator (logged, not crashed).",
+  "_mapping_note": "Rewritten 2026-10-11 against the REAL files found in assets/audio/jinni/hi-IN/ (greeting/, search/, thinking/ only — no cart/errors/limits/listening folders exist yet). Matched by filename wording only, not by actually listening to the clips — please play each one and re-order/re-map in this file (then re-run the generator) if the content doesn't fit the slot.",
+  "entries": [
+    { "phraseKey": "greeting_1", "folder": "greeting", "files": ["jinni_greeting_01_welcome.wav"] },
+    { "phraseKey": "greeting_2", "folder": "greeting", "files": ["jinni_greeting_03_what_to_order.wav"] },
+    { "phraseKey": "greeting_3", "folder": "greeting", "files": ["jinni_greeting_05_welcome_back.wav"] },
+    { "phraseKey": "listening", "folder": "greeting", "files": ["jinni_greeting_04_ready_to_help.wav"] },
+    { "phraseKey": "thinking", "folder": "thinking", "files": [
+      "jinni_thinking_01_one_moment.wav",
+      "jinni_thinking_02_checking.wav",
+      "jinni_thinking_03_best_options.wav",
+      "jinni_thinking_04_understanding.wav",
+      "jinni_thinking_05_please_wait.wav",
+      "jinni_thinking_06_processing.wav"
+    ] },
+    { "phraseKey": "thinking", "folder": "search", "files": [
+      "jinni_search_01_nearby_availability.wav",
+      "jinni_search_02_searching_products.wav"
+    ], "_note": "Both of these read as 'still searching' lines by their filenames, same as thinking/* — folded into the same phraseKey rather than guessed as 'found_items' confirmations, which they don't sound like. The generator merges every entry sharing a phraseKey into one pool." },
+    { "phraseKey": "found_items", "folder": "search", "files": [] },
+    { "phraseKey": "partial_items", "folder": "search", "files": [] },
+    { "phraseKey": "empty_items", "folder": "search", "files": [] },
+    { "phraseKey": "success_1", "folder": "cart", "files": [] },
+    { "phraseKey": "success_2", "folder": "cart", "files": [] },
+    { "phraseKey": "success_3", "folder": "cart", "files": [] },
+    { "phraseKey": "exhausted", "folder": "limits", "files": [] },
+    { "phraseKey": "cancel", "folder": "errors", "files": [] },
+    { "phraseKey": "error", "folder": "errors", "files": [] }
+  ],
+  "_unmapped_files_found_on_disk": [
+    "greeting/jinni_greeting_02_tap_lamp.wav — no current UI moment for an 'idle, tap the lamp' prompt; keep for when one exists",
+    "greeting/jinni_greeting_06_start_wish.wav — overlaps with greeting_1/listening; not used to avoid guessing wrong"
+  ],
+  "_still_need_recordings_for": [
+    "found_items (a real 'yahan mil gaya' confirmation, not a searching-in-progress line)",
+    "partial_items", "success_1", "success_2", "success_3", "exhausted", "cancel", "error"
+  ]
+}
