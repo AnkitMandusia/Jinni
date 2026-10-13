@@ -8,9 +8,9 @@ import { typography } from '@theme/typography';
 
 // Screens
 import { CustomerHomeScreen } from '@modules/home/screens/CustomerHomeScreen';
-import { OrderHistoryScreen } from '@modules/orders/screens/OrderHistoryScreen';
 import { UnifiedCartScreen } from '@modules/cart/screens/UnifiedCartScreen';
 import { ProfileStack } from '@navigation/stacks/ProfileStack';
+import { OrdersStack } from '@navigation/stacks/OrdersStack';
 
 // Module Stacks
 import { FoodStack } from '@navigation/stacks/FoodStack';
@@ -109,7 +109,7 @@ const MainTabs: React.FC = () => {
       })}
     >
       <Tab.Screen name="Home" component={CustomerHomeScreen} />
-      <Tab.Screen name="Orders" component={OrderHistoryScreen} />
+      <Tab.Screen name="Orders" component={OrdersStack} />
       <Tab.Screen
         name="Jinni"
         component={JinniTabPlaceholder}

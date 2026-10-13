@@ -13,6 +13,7 @@ import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { AuthStackParamList } from '@navigation/stacks/AuthStack';
 import { colors } from '@theme/colors';
+import { fontFamily } from '@theme/typography';
 import { spacing } from '@theme/spacing';
 import { AppButton } from '@components/AppButton';
 import { AppInput } from '@components/AppInput';
@@ -124,24 +125,24 @@ const styles = StyleSheet.create({
   flex: { flex: 1 },
   content: { flexGrow: 1, padding: spacing.xl, paddingBottom: spacing.xxxxl },
   header: { marginTop: spacing.xxxl, marginBottom: spacing.xxl },
-  appName: { fontSize: 13, fontWeight: '700', color: colors.primary[500], letterSpacing: 1.5, textTransform: 'uppercase', marginBottom: spacing.md },
-  title: { fontSize: 28, fontWeight: '700', color: colors.gray[900], marginBottom: spacing.xs },
-  subtitle: { fontSize: 15, color: colors.gray[500] },
+  appName: { fontSize: 13, fontFamily: fontFamily.bold, color: colors.primary[500], letterSpacing: 1.5, textTransform: 'uppercase', marginBottom: spacing.md },
+  title: { fontSize: 28, fontFamily: fontFamily.bold, color: colors.gray[900], marginBottom: spacing.xs },
+  subtitle: { fontSize: 15, fontFamily: fontFamily.regular, color: colors.gray[500] },
   errorBox: {
     backgroundColor: colors.error.light,
     borderRadius: 10,
     padding: spacing.md,
     marginBottom: spacing.lg,
   },
-  errorText: { fontSize: 13, color: colors.error.dark },
+  errorText: { fontSize: 13, fontFamily: fontFamily.medium, color: colors.error.dark },
   form: { gap: spacing.sm, marginBottom: spacing.xl },
   eyeIcon: { fontSize: 18, paddingHorizontal: 4 },
   signupRow: { flexDirection: 'row', justifyContent: 'center', alignItems: 'center', marginBottom: spacing.xl },
-  signupText: { fontSize: 14, color: colors.gray[500] },
-  signupLink: { fontSize: 14, color: colors.primary[600], fontWeight: '700' },
+  signupText: { fontSize: 14, fontFamily: fontFamily.regular, color: colors.gray[500] },
+  signupLink: { fontSize: 14, color: colors.primary[600], fontFamily: fontFamily.bold },
   footer: { marginTop: 'auto', paddingTop: spacing.xl, alignItems: 'center' },
-  termsText: { fontSize: 12, color: colors.gray[400], textAlign: 'center' },
-  termsLink: { color: colors.primary[500], fontWeight: '600' },
+  termsText: { fontSize: 12, fontFamily: fontFamily.regular, color: colors.gray[400], textAlign: 'center' },
+  termsLink: { color: colors.primary[500], fontFamily: fontFamily.semiBold },
 });
 
 export default LoginScreen;

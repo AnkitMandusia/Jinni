@@ -9,7 +9,7 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useFocusEffect } from '@react-navigation/native';
+import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from '@theme/colors';
 import { typography, fontFamily } from '@theme/typography';
@@ -55,6 +55,7 @@ const STATUS_LABEL: Record<string, string> = {
   in_transit:        'On the Way',
   delivered:         'Delivered',
   cancelled:         'Cancelled',
+  no_store_available: 'No Store Available',
 };
 
 const STATUS_COLOR: Record<string, { bg: string; text: string }> = {
@@ -67,6 +68,7 @@ const STATUS_COLOR: Record<string, { bg: string; text: string }> = {
   in_transit:        { bg: colors.warning.light,   text: colors.status.outForDelivery },
   delivered:         { bg: colors.success.light,   text: colors.status.delivered },
   cancelled:         { bg: colors.error.light,     text: colors.status.cancelled },
+  no_store_available: { bg: colors.error.light,    text: colors.status.cancelled },
 };
 
 const TRACKING_STEPS = [
@@ -134,17 +136,40 @@ const TrackingTimeline: React.FC<{ currentStatus: string }> = ({ currentStatus }
   );
 };
 
+// Orders in this set have a live store/rider lifecycle worth a dedicated
+// detail page; pending/delivered/cancelled/no-store orders have nothing to
+// track so they just expand inline instead.
+const TRACKABLE_STATUSES = new Set([
+  'store_accepted', 'preparing', 'ready_for_pickup',
+  'delivery_assigned', 'picked_up', 'in_transit',
+]);
+
 const OrderCard: React.FC<{ order: Order }> = ({ order }) => {
+  const navigation = useNavigation<any>();
   const [expanded, setExpanded] = useState(false);
   const sc = STATUS_COLOR[order.status] ?? STATUS_COLOR.pending_dispatch;
-  const isCancelled = order.status === 'cancelled';
+  const isCancelled = order.status === 'cancelled' || order.status === 'no_store_available';
   const isDelivered = order.status === 'delivered';
   const typeIcon = ORDER_TYPE_ICON[order.order_type] ?? 'cart';
+  const isTrackable =
+    TRACKABLE_STATUSES.has(order.status) &&
+    (order.order_type === 'grocery' || order.order_type === 'food');
+
+  const handlePress = () => {
+    if (isTrackable) {
+      navigation.navigate('OrderTracking', {
+        orderId: order.id,
+        moduleType: order.order_type === 'grocery' ? 'grocery' : 'food',
+      });
+      return;
+    }
+    setExpanded((e) => !e);
+  };
 
   return (
     <TouchableOpacity
       style={styles.orderCard}
-      onPress={() => setExpanded((e) => !e)}
+      onPress={handlePress}
       activeOpacity={0.85}
     >
       {/* Card header */}
@@ -174,11 +199,13 @@ const OrderCard: React.FC<{ order: Order }> = ({ order }) => {
         {order.items.map((i) => `${i.product_name} ×${i.quantity}`).join('  ·  ')}
       </Text>
 
-      {/* Cancellation note */}
-      {isCancelled && order.notes && (
+      {/* Cancellation / no-store note */}
+      {isCancelled && (order.notes || order.status === 'no_store_available') && (
         <View style={styles.cancelNote}>
           <Ionicons name="information-circle-outline" size={14} color={colors.error.dark} />
-          <Text style={styles.cancelNoteText}>{order.notes}</Text>
+          <Text style={styles.cancelNoteText}>
+            {order.notes || 'No nearby store was open to accept this order. Please try again or choose a different store.'}
+          </Text>
         </View>
       )}
 
@@ -187,16 +214,24 @@ const OrderCard: React.FC<{ order: Order }> = ({ order }) => {
         <Text style={styles.totalAmount}>{formatPrice(order.total_amount)}</Text>
         <View style={styles.footerRight}>
           <Text style={styles.paymentMethod}>{order.payment_method?.toUpperCase()}</Text>
-          <Ionicons
-            name={expanded ? 'chevron-up' : 'chevron-down'}
-            size={16}
-            color={colors.gray[400]}
-          />
+          {isTrackable ? (
+            <View style={styles.trackPill}>
+              <Ionicons name="navigate" size={11} color={colors.primary[600]} />
+              <Text style={styles.trackPillText}>Track</Text>
+            </View>
+          ) : (
+            <Ionicons
+              name={expanded ? 'chevron-up' : 'chevron-down'}
+              size={16}
+              color={colors.gray[400]}
+            />
+          )}
         </View>
       </View>
 
-      {/* Expanded: tracking timeline + full item list */}
-      {expanded && !isCancelled && (
+      {/* Expanded: tracking timeline + full item list (non-trackable orders only —
+          trackable ones push to the dedicated detail page instead, see handlePress) */}
+      {expanded && !isCancelled && !isTrackable && (
         <View style={styles.expandedSection}>
           <Text style={styles.expandedSectionTitle}>Tracking</Text>
           <TrackingTimeline currentStatus={order.status} />
@@ -251,9 +286,9 @@ export const OrderHistoryScreen: React.FC = () => {
   );
 
   const filtered = orders.filter((o) => {
-    if (activeTab === 'active')    return !['delivered', 'cancelled'].includes(o.status);
+    if (activeTab === 'active')    return !['delivered', 'cancelled', 'no_store_available'].includes(o.status);
     if (activeTab === 'past')      return o.status === 'delivered';
-    if (activeTab === 'cancelled') return o.status === 'cancelled';
+    if (activeTab === 'cancelled') return o.status === 'cancelled' || o.status === 'no_store_available';
     return true;
   });
 
@@ -410,6 +445,16 @@ const styles = StyleSheet.create({
   },
   totalAmount: { ...typography.h6, color: colors.text.primary },
   footerRight: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
+  trackPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    backgroundColor: colors.primary[50],
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 3,
+    borderRadius: borderRadius.full,
+  },
+  trackPillText: { fontSize: 11, fontFamily: fontFamily.bold, color: colors.primary[600] },
   paymentMethod: { ...typography.caption, fontSize: 11, color: colors.text.muted, fontFamily: fontFamily.semiBold },
 
   expandedSection: {

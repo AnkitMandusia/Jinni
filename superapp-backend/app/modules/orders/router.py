@@ -390,6 +390,42 @@ async def delivery_otp_status(
     return await otp_svc.get_otp_status(str(order_id), redis)
 
 
+@router.get("/{order_id}/delivery-otp/debug")
+async def delivery_otp_debug(
+    order_id: UUID,
+    user: User = Depends(get_current_active_user),
+    db: AsyncSession = Depends(get_db),
+    redis: Redis = Depends(get_redis),
+):
+    """[Delivery/Admin, OTP_DEBUG only] Read back the plaintext OTP for local testing.
+
+    WhatsApp/SMS are rarely configured in dev, so without this there's no way to
+    complete a delivery end-to-end. 404s outright when OTP_DEBUG=false (production)
+    so this never becomes a real leak — see app.modules.delivery_otp.service.
+    """
+    from app.config import settings
+    from app.modules.delivery_otp import service as otp_svc
+
+    if not getattr(settings, "OTP_DEBUG", True):
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Not found")
+
+    if user.role not in ("delivery", "admin"):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not allowed")
+
+    if user.role == "delivery":
+        order = await db.get(Order, order_id)
+        if not order or order.delivery_agent_id != user.id:
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not your assigned order")
+
+    otp = await otp_svc.get_debug_otp(str(order_id), redis)
+    if otp is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="No active OTP for this order — tap Confirm Delivery first",
+        )
+    return {"otp": otp, "note": "OTP_DEBUG mode only — never available in production"}
+
+
 @router.post("/{order_id}/verify-otp")
 @router.post("/{order_id}/delivery-otp/verify")
 async def verify_delivery_otp_endpoint(
@@ -610,9 +646,12 @@ async def get_order_tracking(
             "speed": float(latest.speed) if latest and latest.speed is not None else None,
             "heading": float(latest.heading) if latest and latest.heading is not None else None,
             "updated_at": latest.timestamp.isoformat() if latest else (profile.last_location_at.isoformat() if profile and profile.last_location_at else None),
+            "rating": float(profile.rating) if profile and profile.rating is not None else 4.8,
+            "vehicle_type": profile.vehicle_type if profile else None,
         }
 
     destination = order.delivery_address or {}
+    pickup = order.pickup_address or {}
     return {
         "order_id": str(order.id),
         "order_number": order.order_number,
@@ -623,6 +662,10 @@ async def get_order_tracking(
         "destination": {
             "latitude": float(order.delivery_lat) if order.delivery_lat is not None else destination.get("latitude"),
             "longitude": float(order.delivery_lng) if order.delivery_lng is not None else destination.get("longitude"),
+        },
+        "pickup": {
+            "latitude": pickup.get("latitude"),
+            "longitude": pickup.get("longitude"),
         },
         "rider": rider,
         "created_at": order.created_at.isoformat() if order.created_at else None,
