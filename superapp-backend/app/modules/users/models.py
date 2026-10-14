@@ -76,6 +76,12 @@ class StoreProfile(Base):
     is_open = Column(Boolean, default=True)
     delivery_radius_km = Column(Float, default=5.0)
 
+    # Customer-facing rating (Zomato/Blinkit style star badge on the store
+    # card). rating_count starts at 0 — the badge is hidden on the frontend
+    # until a store has enough real ratings; see StoreRatingBadge.
+    rating = Column(Float, nullable=True)
+    rating_count = Column(Integer, default=0, nullable=False)
+
     approved_by = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=True)
     approved_at = Column(DateTime, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
@@ -111,6 +117,10 @@ class RestaurantProfile(Base):
     longitude = Column(Float, nullable=True)
 
     is_open = Column(Boolean, default=True)
+    # Note: customer-facing rating lives on app.modules.food.models.Restaurant
+    # (rating_avg/rating_count) — the actual catalog row shown/ordered from
+    # in the Food module — not here. This profile is the owner's own
+    # dashboard/KYC record, a different row keyed by the same user_id.
 
     approved_by = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=True)
     approved_at = Column(DateTime, nullable=True)

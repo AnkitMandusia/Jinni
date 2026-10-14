@@ -36,6 +36,7 @@ type Tracking = {
   pickup_address: any;
   destination: { latitude?: number; longitude?: number };
   pickup?: { latitude?: number; longitude?: number };
+  customer_rating?: number | null;
   rider?: {
     name?: string; phone?: string; rating?: number; vehicle_type?: string;
     latitude?: number; longitude?: number; updated_at?: string;
@@ -61,6 +62,8 @@ export const OrderTrackingScreen: React.FC = () => {
   const [refreshing, setRefreshing] = useState(false);
   const [nowTick, setNowTick] = useState(Date.now());
   const [firstLoadedAt] = useState(() => Date.now());
+  const [ratingDraft, setRatingDraft] = useState(0);
+  const [submittingRating, setSubmittingRating] = useState(false);
 
   const load = useCallback(async (silent = false) => {
     try {
@@ -113,6 +116,21 @@ export const OrderTrackingScreen: React.FC = () => {
       ? Math.max(stageProgress, Math.min(0.95, timeProgress))
       : stageProgress;
   }, [tracking?.status, elapsedMinutes, etaMinutes]);
+
+  const submitRating = async (stars: number) => {
+    if (submittingRating) return;
+    setRatingDraft(stars);
+    setSubmittingRating(true);
+    try {
+      await api.post(`/orders/${orderId}/rating`, { rating: stars });
+      setTracking((t) => (t ? { ...t, customer_rating: stars } : t));
+    } catch (e: any) {
+      setRatingDraft(0);
+      console.warn('Rating error', e?.response?.data || e?.message);
+    } finally {
+      setSubmittingRating(false);
+    }
+  };
 
   const statusText = tracking?.status === 'in_transit' || tracking?.status === 'picked_up'
     ? 'Your rider is on the way'
@@ -184,6 +202,34 @@ export const OrderTrackingScreen: React.FC = () => {
             </View>
           ) : null}
 
+          {isDelivered ? (
+            <View style={styles.rateCard}>
+              {tracking?.customer_rating ? (
+                <View style={styles.rateDoneRow}>
+                  <Ionicons name="checkmark-circle" size={16} color={colors.success.DEFAULT} />
+                  <Text style={styles.rateDoneText}>
+                    You rated this order {tracking.customer_rating} star{tracking.customer_rating > 1 ? 's' : ''} — thanks!
+                  </Text>
+                </View>
+              ) : (
+                <>
+                  <Text style={styles.rateTitle}>How was your order?</Text>
+                  <View style={styles.starsRow}>
+                    {[1, 2, 3, 4, 5].map((n) => (
+                      <TouchableOpacity key={n} onPress={() => submitRating(n)} disabled={submittingRating} hitSlop={6}>
+                        <Ionicons
+                          name={n <= ratingDraft ? 'star' : 'star-outline'}
+                          size={30}
+                          color={n <= ratingDraft ? colors.warning.DEFAULT : colors.gray[300]}
+                        />
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                </>
+              )}
+            </View>
+          ) : null}
+
           <View style={styles.timeline}>
             {['pending_dispatch', 'store_accepted', 'preparing', 'ready_for_pickup', 'delivery_assigned', 'picked_up', 'delivered'].map((s, index, all) => {
               const current = TRACK_ORDER.indexOf(tracking?.status || 'pending_dispatch');
@@ -239,6 +285,11 @@ const styles = StyleSheet.create({
   riderMetaRow: { flexDirection: 'row', alignItems: 'center', gap: 3, marginTop: 2 },
   riderMeta: { ...typography.caption, color: colors.gray[500] },
   callBtn: { width: 38, height: 38, borderRadius: 19, alignItems: 'center', justifyContent: 'center' },
+  rateCard: { marginTop: spacing.md, padding: spacing.md, borderRadius: borderRadius.md, backgroundColor: colors.surface.sunken, alignItems: 'center' },
+  rateTitle: { ...typography.label, color: colors.gray[800], marginBottom: spacing.sm },
+  starsRow: { flexDirection: 'row', gap: 6 },
+  rateDoneRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  rateDoneText: { ...typography.caption, color: colors.gray[600] },
   timeline: { marginTop: spacing.lg },
   timelineRow: { flexDirection: 'row', minHeight: 28 },
   timelineRail: { width: 24, alignItems: 'center' },

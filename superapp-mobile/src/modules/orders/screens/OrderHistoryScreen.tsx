@@ -41,6 +41,7 @@ interface Order {
   accepted_at: string | null;
   delivered_at: string | null;
   notes: string | null;
+  customer_rating: number | null;
 }
 
 // ── status config ─────────────────────────────────────────────────────────────
@@ -151,9 +152,12 @@ const OrderCard: React.FC<{ order: Order }> = ({ order }) => {
   const isCancelled = order.status === 'cancelled' || order.status === 'no_store_available';
   const isDelivered = order.status === 'delivered';
   const typeIcon = ORDER_TYPE_ICON[order.order_type] ?? 'cart';
-  const isTrackable =
-    TRACKABLE_STATUSES.has(order.status) &&
-    (order.order_type === 'grocery' || order.order_type === 'food');
+  const isFoodOrGrocery = order.order_type === 'grocery' || order.order_type === 'food';
+  const needsRating = isDelivered && order.customer_rating == null && isFoodOrGrocery;
+  // Delivered-but-unrated orders also open the detail page (it's where the
+  // star picker lives) — once rated there's nothing live left to show, so
+  // it drops back to the plain inline expand like any other past order.
+  const isTrackable = (TRACKABLE_STATUSES.has(order.status) || needsRating) && isFoodOrGrocery;
 
   const handlePress = () => {
     if (isTrackable) {
@@ -216,8 +220,8 @@ const OrderCard: React.FC<{ order: Order }> = ({ order }) => {
           <Text style={styles.paymentMethod}>{order.payment_method?.toUpperCase()}</Text>
           {isTrackable ? (
             <View style={styles.trackPill}>
-              <Ionicons name="navigate" size={11} color={colors.primary[600]} />
-              <Text style={styles.trackPillText}>Track</Text>
+              <Ionicons name={needsRating ? 'star' : 'navigate'} size={11} color={colors.primary[600]} />
+              <Text style={styles.trackPillText}>{needsRating ? 'Rate' : 'Track'}</Text>
             </View>
           ) : (
             <Ionicons

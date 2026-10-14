@@ -77,6 +77,7 @@ class OrderResponse(BaseModel):
     delivered_at: Optional[datetime]
     
     notes: Optional[str]
+    customer_rating: Optional[int] = None
 
 
 class OrderListResponse(BaseModel):
@@ -106,6 +107,13 @@ class DeclineOrderRequest(BaseModel):
 class VerifyOTPRequest(BaseModel):
     """Schema for delivery agent verifying WhatsApp OTP."""
     otp: str = Field(..., min_length=4, max_length=8)
+
+
+class RateOrderRequest(BaseModel):
+    """Customer rating a delivered order — feeds the store/restaurant's
+    aggregate rating badge shown on the listing screens."""
+    rating: int = Field(..., ge=1, le=5)
+    review: Optional[str] = Field(None, max_length=500)
 
 
 class DeliveryLocationUpdate(BaseModel):

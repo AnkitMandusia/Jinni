@@ -673,7 +673,58 @@ async def get_order_tracking(
         "picked_up_at": order.picked_up_at.isoformat() if order.picked_up_at else None,
         "delivered_at": order.delivered_at.isoformat() if order.delivered_at else None,
         "items_count": len(order.items),
+        "customer_rating": order.customer_rating,
     }
+
+
+@router.post("/{order_id}/rating")
+async def rate_order(
+    order_id: UUID,
+    body: schemas.RateOrderRequest,
+    user: User = Depends(get_current_active_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """[Customer] Rate a delivered order — rolls into the store/restaurant's
+    aggregate rating shown as a chip on the listing screens (Zomato/Blinkit
+    style: hidden as a score until there are enough ratings, "NEW" until
+    then — see RatingBadge on the frontend). One rating per order; re-submit
+    is rejected rather than silently overwritten, since that would quietly
+    double-count or skew the running average.
+    """
+    order = await db.get(Order, order_id)
+    if not order or order.customer_id != user.id:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Order not found")
+    if order.status != OrderStatus.DELIVERED.value:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Only delivered orders can be rated")
+    if order.customer_rating is not None:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="This order has already been rated")
+
+    order.customer_rating = body.rating
+    order.customer_review = body.review
+
+    if order.order_type == "food":
+        from app.modules.food.models import Restaurant
+        result = await db.execute(select(Restaurant).where(Restaurant.owner_id == order.store_id))
+        target = result.scalar_one_or_none()
+        if target:
+            prev_avg = float(target.rating_avg or 0)
+            prev_count = target.rating_count or 0
+            new_count = prev_count + 1
+            target.rating_avg = round((prev_avg * prev_count + body.rating) / new_count, 2)
+            target.rating_count = new_count
+    else:
+        result = await db.execute(select(StoreProfile).where(StoreProfile.user_id == order.store_id))
+        target = result.scalar_one_or_none()
+        if target:
+            prev_avg = float(target.rating or 0)
+            prev_count = target.rating_count or 0
+            new_count = prev_count + 1
+            target.rating = round((prev_avg * prev_count + body.rating) / new_count, 2)
+            target.rating_count = new_count
+
+    await db.commit()
+    return {"status": "ok", "rating": body.rating}
+
 
 @router.get("/{order_id}", response_model=schemas.OrderResponse)
 async def get_order_details(
