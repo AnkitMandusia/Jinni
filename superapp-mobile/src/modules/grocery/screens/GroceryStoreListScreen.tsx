@@ -26,6 +26,29 @@ interface Store {
   city: string;
   is_open: boolean;
   delivery_radius_km: number;
+  rating: number | null;
+  rating_count: number;
+}
+
+// Mirrors RestaurantListScreen's RatingChip exactly, so the two listing
+// screens read consistently: a green/amber star score once a store has at
+// least one real rating, a neutral "NEW" chip before that — never a
+// fabricated 0.0 or 5.0, which is what would make the list feel noisy/fake.
+function StoreRatingChip({ rating, count }: { rating: number | null; count: number }) {
+  if (!count || !rating) {
+    return (
+      <View style={[styles.badge, styles.newBadge]}>
+        <Text style={[styles.badgeText, styles.newText]}>NEW</Text>
+      </View>
+    );
+  }
+  const good = rating >= 4;
+  return (
+    <View style={[styles.badge, good ? styles.ratingBadgeGood : styles.ratingBadgeOk]}>
+      <Ionicons name="star" size={10} color={colors.white} />
+      <Text style={[styles.badgeText, styles.ratingBadgeText]}>{rating.toFixed(1)}</Text>
+    </View>
+  );
 }
 
 export const GroceryStoreListScreen: React.FC = () => {
@@ -69,6 +92,7 @@ export const GroceryStoreListScreen: React.FC = () => {
         <Text style={styles.storeName}>{item.store_name}</Text>
         <Text style={styles.address} numberOfLines={1}>{item.address}</Text>
         <View style={styles.meta}>
+          <StoreRatingChip rating={item.rating} count={item.rating_count} />
           <View style={[styles.badge, item.is_open ? styles.openBadge : styles.closedBadge]}>
             <Text style={[styles.badgeText, item.is_open ? styles.openText : styles.closedText]}>
               {item.is_open ? 'Open' : 'Closed'}
@@ -209,12 +233,17 @@ const styles = StyleSheet.create({
   storeName: { fontSize: 16, fontFamily: fontFamily.bold, color: colors.gray[900] },
   address: { fontSize: 13, color: colors.gray[500], marginTop: 2 },
   meta: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginTop: spacing.xs },
-  badge: { paddingHorizontal: 8, paddingVertical: 2, borderRadius: 20 },
+  badge: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 8, paddingVertical: 2, borderRadius: 20, gap: 3 },
   openBadge: { backgroundColor: colors.success.DEFAULT + '20' },
   closedBadge: { backgroundColor: colors.error.DEFAULT + '20' },
   badgeText: { fontSize: 11, fontFamily: fontFamily.bold },
   openText: { color: colors.success.DEFAULT },
   closedText: { color: colors.error.DEFAULT },
+  newBadge: { backgroundColor: colors.gray[200] },
+  newText: { color: colors.gray[600] },
+  ratingBadgeGood: { backgroundColor: colors.success.DEFAULT },
+  ratingBadgeOk: { backgroundColor: colors.warning.DEFAULT },
+  ratingBadgeText: { color: colors.white },
   metaRow: { flexDirection: 'row', alignItems: 'center', gap: 3 },
   metaText: { fontSize: 12, color: colors.gray[500] },
 });

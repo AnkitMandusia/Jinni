@@ -48,6 +48,7 @@ REDIS_META_PREFIX = "dotp:meta:"        # JSON metadata
 REDIS_ATTEMPTS_PREFIX = "dotp:attempts:"
 REDIS_MSG_PREFIX = "dotp:msg:"          # wa_message_id → order_id (idempotency)
 REDIS_SMS_SENT_PREFIX = "dotp:sms_sent:"  # prevent duplicate SMS
+REDIS_DEBUG_PREFIX = "dotp:debug:"      # plaintext OTP — ONLY written when OTP_DEBUG=true
 
 
 def _hash_otp(otp: str, salt: str) -> str:
@@ -128,6 +129,19 @@ async def initiate_delivery_otp(
     now = time.time()
     expires_at = now + OTP_TTL_SECONDS
 
+    # Debug mode: surface the plaintext OTP immediately, before any WhatsApp/SMS
+    # network call that could throw and skip the old log-at-the-end line. Logged
+    # AND stashed in Redis (short TTL, debug-only key) so it can be read back via
+    # GET /orders/{order_id}/delivery-otp/debug without needing server log access —
+    # this never runs when OTP_DEBUG=false (production), and the real otp/meta/
+    # attempts keys above only ever store the salted hash, never the plaintext.
+    if getattr(settings, "OTP_DEBUG", True):
+        logger.warning(
+            "[DELIVERY OTP DEBUG] order=%s otp=%s phone=%s",
+            order_id, otp, _mask_phone(customer_phone),
+        )
+        await redis.set(f"{REDIS_DEBUG_PREFIX}{order_id}", otp, ex=OTP_TTL_SECONDS + 30)
+
     phone_hint = _mask_phone(customer_phone)
     meta = {
         "order_id": order_id,
@@ -177,10 +191,6 @@ async def initiate_delivery_otp(
             meta["failure_reason"] = sms_result.get("error") or meta.get("failure_reason")
         await redis.set(meta_key, json.dumps(meta), ex=OTP_TTL_SECONDS + 60)
 
-    # Debug mode: log OTP (never in production logs if OTP_DEBUG=false)
-    if getattr(settings, "OTP_DEBUG", True):
-        logger.warning("[DELIVERY OTP DEBUG] order=%s otp=%s phone=%s channel=%s", order_id, otp, phone_hint, meta["channel_status"])
-
     return {
         "status": "initiated",
         "phone_hint": phone_hint,
@@ -191,6 +201,20 @@ async def initiate_delivery_otp(
         "resends_left": max(0, MAX_RESENDS_PER_ORDER - meta["resend_count"]),
         "attempt_id": attempt_id,
     }
+
+
+async def get_debug_otp(order_id: str, redis: Redis) -> Optional[str]:
+    """Dev-only: read back the plaintext OTP stashed by initiate_delivery_otp.
+
+    Returns None when OTP_DEBUG=false (caller should 404), or when no OTP has
+    been generated for this order yet / it already expired.
+    """
+    if not getattr(settings, "OTP_DEBUG", True):
+        return None
+    raw = await redis.get(f"{REDIS_DEBUG_PREFIX}{order_id}")
+    if raw is None:
+        return None
+    return raw.decode() if isinstance(raw, bytes) else raw
 
 
 async def check_and_fallback_sms(order_id: str, redis: Redis) -> Optional[dict]:

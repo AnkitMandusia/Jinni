@@ -66,6 +66,7 @@ export const StoreDashboardScreen: React.FC = () => {
   const [declineTarget, setDeclineTarget] = useState<DeclineTarget | null>(null);
   const [declineReason, setDeclineReason] = useState('');
   const [declining, setDeclining] = useState(false);
+  const [togglingOpen, setTogglingOpen] = useState(false);
 
   const fetchStats = async () => {
     try {
@@ -118,6 +119,22 @@ export const StoreDashboardScreen: React.FC = () => {
       alert(error?.response?.data?.detail || 'Failed to decline order');
     } finally {
       setDeclining(false);
+    }
+  };
+
+  const handleToggleOpen = async () => {
+    if (!stats || togglingOpen) return;
+    const nextOpen = !stats.is_open;
+    setTogglingOpen(true);
+    // Optimistic flip so the badge feels instant; rolled back on failure.
+    setStats({ ...stats, is_open: nextOpen });
+    try {
+      await api.patch('/store/profile', { is_open: nextOpen });
+    } catch (error: any) {
+      setStats({ ...stats, is_open: !nextOpen });
+      alert(error?.response?.data?.detail || 'Failed to update store status');
+    } finally {
+      setTogglingOpen(false);
     }
   };
 
@@ -198,11 +215,25 @@ export const StoreDashboardScreen: React.FC = () => {
             <Text style={styles.greeting}>Welcome back,</Text>
             <Text style={styles.storeName}>{stats?.store_name ?? user?.name ?? 'Store Owner'}</Text>
           </View>
-          <View style={[styles.statusBadge, stats?.is_open ? styles.openBadge : styles.closedBadge]}>
-            <Text style={[styles.statusText, stats?.is_open ? styles.openText : styles.closedText]}>
-              {stats?.is_open ? 'OPEN' : 'CLOSED'}
-            </Text>
-          </View>
+          <TouchableOpacity
+            style={[styles.statusBadge, stats?.is_open ? styles.openBadge : styles.closedBadge]}
+            onPress={handleToggleOpen}
+            disabled={!stats || togglingOpen}
+            activeOpacity={0.7}
+          >
+            {togglingOpen ? (
+              <ActivityIndicator size="small" color={stats?.is_open ? colors.success.dark : colors.error.dark} />
+            ) : (
+              <>
+                <Text style={[styles.statusText, stats?.is_open ? styles.openText : styles.closedText]}>
+                  {stats?.is_open ? 'OPEN' : 'CLOSED'}
+                </Text>
+                <Text style={[styles.statusToggleHint, stats?.is_open ? styles.openText : styles.closedText]}>
+                  Tap to {stats?.is_open ? 'close' : 'open'}
+                </Text>
+              </>
+            )}
+          </TouchableOpacity>
         </View>
 
         {loading ? (
@@ -348,10 +379,13 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.xs,
     borderRadius: borderRadius.xl,
+    alignItems: 'center',
+    minWidth: 76,
   },
   openBadge: { backgroundColor: colors.success.light },
   closedBadge: { backgroundColor: colors.error.light },
   statusText: { fontSize: 12, fontFamily: fontFamily.bold, letterSpacing: 0.5 },
+  statusToggleHint: { fontSize: 9, fontFamily: fontFamily.medium, opacity: 0.75, marginTop: 1 },
   openText: { color: colors.success.dark },
   closedText: { color: colors.error.dark },
   loader: { marginTop: spacing.xxxxl },

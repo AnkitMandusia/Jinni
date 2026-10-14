@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useRef, useState, useCallback } from 'react';
 import {
   View,
   Text,
@@ -61,6 +61,12 @@ export const StoreProductsScreen: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'universal' | 'custom'>('universal');
   const [updatingProductId, setUpdatingProductId] = useState<string | null>(null);
   const [showAddModal, setShowAddModal] = useState(false);
+  // Set right before navigating to AddProduct, so that when this screen
+  // refocuses on goBack() we can jump the owner straight to the "My Products"
+  // tab — otherwise a newly added custom product lands in the custom list
+  // while the screen is still showing the "Universal Products" tab, and
+  // silently looks like the add didn't work.
+  const wentToAddProduct = useRef(false);
   
   // New product form
   const [newProduct, setNewProduct] = useState({
@@ -100,6 +106,10 @@ export const StoreProductsScreen: React.FC = () => {
     useCallback(() => {
       fetchCategories();
       fetchProducts();
+      if (wentToAddProduct.current) {
+        wentToAddProduct.current = false;
+        setActiveTab('custom');
+      }
     }, [selectedCategory])
   );
 
@@ -273,7 +283,10 @@ export const StoreProductsScreen: React.FC = () => {
         <Text style={styles.title}>My Products</Text>
         <TouchableOpacity
           style={styles.addBtn}
-          onPress={() => navigation.navigate('AddProduct', { adminMode: false })}
+          onPress={() => {
+            wentToAddProduct.current = true;
+            navigation.navigate('AddProduct', { adminMode: false });
+          }}
         >
           <Ionicons name="add" size={24} color={colors.white} />
         </TouchableOpacity>
@@ -476,7 +489,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.primary[500],
     borderColor: colors.primary[500],
   },
-  categoryText: { fontSize: 13, color: colors.gray[600] },
+  categoryText: { fontSize: 13, color: colors.gray[600], fontFamily: fontFamily.medium },
   activeCategoryText: { color: colors.white, fontFamily: fontFamily.semiBold },
   list: { padding: spacing.md },
   loader: { flex: 1, marginTop: 100 },
@@ -586,7 +599,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.primary[500],
     borderColor: colors.primary[500],
   },
-  categorySelectText: { fontSize: 13, color: colors.gray[700] },
+  categorySelectText: { fontSize: 13, color: colors.gray[700], fontFamily: fontFamily.medium },
   categorySelectTextActive: { fontSize: 13, color: colors.white, fontFamily: fontFamily.semiBold },
   submitBtn: {
     backgroundColor: colors.primary[500],

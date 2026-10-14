@@ -826,6 +826,11 @@ async def list_stores_by_pincode(
                 "delivery_radius_km": float(profile.delivery_radius_km or 5),
                 "latitude": float(profile.latitude) if profile.latitude else None,
                 "longitude": float(profile.longitude) if profile.longitude else None,
+                # None / 0 means "not enough ratings yet" — frontend shows a
+                # "NEW" chip instead of a star score in that case, same
+                # convention as the restaurant list.
+                "rating": float(profile.rating) if profile.rating is not None else None,
+                "rating_count": profile.rating_count or 0,
             }
             for user, profile in rows
         ],
