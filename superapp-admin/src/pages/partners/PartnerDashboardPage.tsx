@@ -70,7 +70,7 @@ export const PartnerDashboardPage: React.FC = () => {
     { title: 'Live menu items', value: stats.active_menu_items || 0, icon: <ShopOutlined /> },
   ] : [
     { title: "Today's orders", value: stats.today_orders || stats.orders_today || 0, icon: <ShoppingOutlined /> },
-    { title: "Today's revenue", value: money(stats.today_revenue || stats.revenue_today), icon: <DollarOutlined /> },
+    { title: "Today's revenue", value: money(stats.today_revenue || stats.revenue_today || stats.total_revenue), icon: <DollarOutlined /> },
     { title: 'Pending orders', value: stats.pending_orders || 0, icon: <ClockCircleOutlined /> },
     { title: 'Products listed', value: stats.total_products || stats.products_count || 0, icon: <ShopOutlined /> },
   ], [restaurant, stats]);
@@ -121,7 +121,23 @@ export const PartnerDashboardPage: React.FC = () => {
       {restaurant && <div style={{marginTop:18}}><Title level={5}>Menu categories</Title><Space wrap>{categories.map(c => <Tag key={c.id}>{c.name}</Tag>)}</Space></div>}
     </Card>}
     {section === 'profile' && <Card title="Business details"><Form layout="vertical" initialValues={profile} key={JSON.stringify(profile)} onFinish={saveProfile}>
-      <Row gutter={16}><Col xs={24} md={12}><Form.Item name="name" label="Business name"><Input /></Form.Item></Col><Col xs={24} md={12}><Form.Item name="phone" label="Contact number"><Input /></Form.Item></Col><Col xs={24} md={12}><Form.Item name="email" label="Email"><Input /></Form.Item></Col><Col xs={24} md={12}><Form.Item name="address" label="Address"><Input /></Form.Item></Col><Col xs={24} md={12}><Form.Item name="description" label="Description"><Input /></Form.Item></Col></Row>
+      <Row gutter={16}>{restaurant ? <>
+        <Col xs={24} md={12}><Form.Item name="name" label="Restaurant name"><Input /></Form.Item></Col>
+        <Col xs={24} md={12}><Form.Item name="description" label="Description"><Input /></Form.Item></Col>
+        <Col xs={24} md={12}><Form.Item name="address_line1" label="Address"><Input /></Form.Item></Col>
+        <Col xs={24} md={12}><Form.Item name="address_line2" label="Address line 2"><Input /></Form.Item></Col>
+        <Col xs={24} md={8}><Form.Item name="city" label="City"><Input /></Form.Item></Col>
+        <Col xs={24} md={8}><Form.Item name="state" label="State"><Input /></Form.Item></Col>
+        <Col xs={24} md={8}><Form.Item name="pincode" label="PIN code"><Input maxLength={6} /></Form.Item></Col>
+      </> : <>
+        <Col xs={24} md={12}><Form.Item name="address" label="Address"><Input /></Form.Item></Col>
+        <Col xs={24} md={12}><Form.Item name="pincode" label="PIN code"><Input maxLength={6} /></Form.Item></Col>
+        <Col xs={24} md={12}><Form.Item name="city" label="City"><Input /></Form.Item></Col>
+        <Col xs={24} md={12}><Form.Item name="state" label="State"><Input /></Form.Item></Col>
+        <Col xs={24} md={12}><Form.Item name="delivery_radius_km" label="Delivery radius (km)"><InputNumber min={1} max={50} style={{width:'100%'}} /></Form.Item></Col>
+        <Col xs={24} md={12}><Form.Item name="gstin" label="GSTIN"><Input /></Form.Item></Col>
+        <Col xs={24} md={12}><Form.Item name="fssai" label="FSSAI licence"><Input /></Form.Item></Col>
+      </>}</Row>
       <Button type="primary" htmlType="submit">Save profile</Button>
     </Form></Card>}
     <Modal title={restaurant ? 'Add menu item' : 'Add custom product'} open={modalOpen} onCancel={() => setModalOpen(false)} onOk={() => form.submit()} okText="Save item">
