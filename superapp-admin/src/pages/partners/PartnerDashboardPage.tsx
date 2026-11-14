@@ -338,7 +338,7 @@ export const PartnerDashboardPage: React.FC = () => {
       title: 'Actions', key: 'actions', render: (_: any, row: RowData) => {
         if (isTerminal(row.status)) return <Text type="secondary">Completed</Text>;
         if (row.status === 'pending_dispatch') return restaurant
-          ? <Space wrap><Button size="small" type="primary" loading={actionId===String(row.id)} onClick={() => void actOnOrder(row,'store_accepted')}>Accept</Button><Button size="small" danger loading={actionId===String(row.id)} onClick={() => { setDeclineOrder(row); setDeclineReason(''); }}>Decline</Button></Space>
+          ? <Space wrap><Button size="small" type="primary" loading={actionId===String(row.id)} onClick={() => void actOnOrder(row,'store_accepted')}>Accept</Button><Button size="small" danger loading={actionId===String(row.id)} onClick={() => void actOnOrder(row,'rejected')}>Decline</Button></Space>
           : <Space wrap><Button size="small" type="primary" loading={actionId===String(row.id)} onClick={() => void actOnOrder(row,'accept')}>Accept</Button><Button size="small" danger onClick={() => { setDeclineOrder(row); setDeclineReason(''); }}>Decline</Button></Space>;
         const next = row.status === 'store_accepted' ? 'preparing' : row.status === 'preparing' ? 'ready_for_pickup' : row.status === 'ready_for_pickup' && !restaurant ? 'delivery_assigned' : null;
         if (next) return <Button size="small" type="primary" loading={actionId===String(row.id)} onClick={() => void actOnOrder(row,next)}>{next === 'preparing' ? 'Start preparing' : next === 'ready_for_pickup' ? 'Mark ready for pickup' : 'Assign delivery'}</Button>;
@@ -447,7 +447,7 @@ export const PartnerDashboardPage: React.FC = () => {
 
     {section === 'catalog' && !restaurant && <Card className="portal-card" title="Store products & stock" extra={<Button type="primary" icon={<PlusOutlined/>} onClick={()=>{productForm.resetFields();productForm.setFieldsValue({unit:'piece',stock_quantity:0});setProductOpen(true);}}>Add custom product</Button>}>
       <Alert type="info" showIcon message="Universal catalogue and your custom products" description="Availability is saved to your store inventory. Custom products can be added, toggled or removed here." style={{marginBottom:16}}/>
-      <Table rowKey={row=>row.product_id || row.id} loading={loading || refreshing} columns={productColumns} dataSource={products} pagination={{pageSize:10}} scroll={{x:800}} locale={{emptyText:<Empty description={pageError ? 'Products could not be loaded' : 'No products found for this store'}/>}}/>
+      <Table className="desktop-product-table" rowKey={row=>row.product_id || row.id} loading={loading || refreshing} columns={productColumns} dataSource={products} pagination={{pageSize:10}} scroll={{x:800}} locale={{emptyText:<Empty description={pageError ? 'Products could not be loaded' : 'No products found for this store'}/>}}/>
       <div className="mobile-product-list">
         {products.map(item=><Card size="small" key={item.product_id||item.id} className="mobile-product-card">
           <div className="mobile-product-row"><div><Text strong>{item.name}</Text><div><Text type="secondary">{money(item.price)} / {item.unit || 'piece'} · Stock {item.stock_quantity ?? '—'}</Text></div><Tag>{item.product_id?'Catalogue':'My product'}</Tag></div><Switch checked={!!item.is_available} onChange={value=>void toggleAvailability(item,value)}/></div>
