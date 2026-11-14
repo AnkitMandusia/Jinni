@@ -37,6 +37,7 @@ const AppRoutes: React.FC = () => {
     <Routes>
       <Route path="/login" element={token ? <Navigate to={home} replace /> : <LoginPage />} />
       <Route path="/" element={<ProtectedRoute roles={['admin']}><DashboardPage /></ProtectedRoute>} />
+      <Route path="/admin" element={<ProtectedRoute roles={['admin']}><DashboardPage /></ProtectedRoute>} />
       <Route path="/users" element={<ProtectedRoute roles={['admin']}><UsersPage /></ProtectedRoute>} />
       <Route path="/orders" element={<ProtectedRoute roles={['admin']}><OrdersPage /></ProtectedRoute>} />
       <Route path="/delivery" element={<ProtectedRoute roles={['admin']}><DeliveryAgentsPage /></ProtectedRoute>} />

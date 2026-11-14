@@ -8,7 +8,7 @@ const homeForRole = (role?: string) => {
   const value = (role || '').toLowerCase();
   if (value.includes('restaurant')) return '/restaurant';
   if (value.includes('store') || value.includes('grocery')) return '/store';
-  return '/';
+  return '/admin';
 };
 export const LoginPage: React.FC = () => {
   const navigate = useNavigate();

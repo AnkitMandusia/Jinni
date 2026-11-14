@@ -17,7 +17,7 @@ export const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
     { key: base + '/catalog', icon: <AppstoreOutlined />, label: role.includes('restaurant') ? 'Menu & Categories' : 'Products & Stock' },
     { key: base + '/profile', icon: <SettingOutlined />, label: 'Business Profile' },
   ] : [
-    { key: '/', icon: <DashboardOutlined />, label: 'Dashboard' },
+    { key: '/admin', icon: <DashboardOutlined />, label: 'Dashboard' },
     { key: '/users', icon: <UserOutlined />, label: 'Users & Partners' },
     { key: '/orders', icon: <ShoppingOutlined />, label: 'All Orders' },
     { key: '/delivery', icon: <CarOutlined />, label: 'Delivery Agents' },

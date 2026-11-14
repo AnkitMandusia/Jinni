@@ -10,7 +10,7 @@ interface AuthState {
 }
 const allowedRole = (role?: string) => {
   const value = (role || '').toLowerCase();
-  return value === 'admin' || value.includes('restaurant') || value.includes('store') || value.includes('grocery');
+  return value === 'admin' || value === 'super_admin' || value.includes('restaurant') || value.includes('store') || value.includes('grocery');
 };
 export const useAuthStore = create<AuthState>((set) => ({
   user: null, token: null, loading: false, error: null,
