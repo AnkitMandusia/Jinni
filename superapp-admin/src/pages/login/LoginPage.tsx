@@ -19,12 +19,18 @@ export const LoginPage: React.FC = () => {
   const { loginWithPassword, loginWithDevMock, loading, error, clearError } = useAuthStore();
   const [identifier, setIdentifier] = useState('');
   const [password, setPassword] = useState('');
+  const [formError, setFormError] = useState('');
   const [devEmail, setDevEmail] = useState('resturant@test.com');
   const [devPassword, setDevPassword] = useState('');
 
   const submit = async () => {
     clearError();
+    setFormError('');
     if (!identifier.trim() || !password) return;
+    if (!API_CONFIGURED) {
+      setFormError('The login fields are ready, but the Vercel deployment is missing VITE_API_URL. Please contact the Jinni administrator to configure the backend URL.');
+      return;
+    }
     const success = await loginWithPassword(identifier.trim(), password);
     if (success) {
       const currentUser = useAuthStore.getState().user;
@@ -48,7 +54,7 @@ export const LoginPage: React.FC = () => {
         </div>
 
         {!API_CONFIGURED && <Alert type="error" showIcon style={{ marginBottom: 18 }} message="Backend API URL is not configured" description="Add VITE_API_URL to the Jinni Vercel project. Use your deployed FastAPI origin without /api/v1 or a trailing slash, then redeploy." />}
-        {error && <Alert type="error" showIcon style={{ marginBottom: 18 }} message={error} />}
+        {(formError || error) && <Alert type="error" showIcon style={{ marginBottom: 18 }} message={formError || error} />}
 
         <Space direction="vertical" size={16} style={{ width: '100%' }}>
           <div>
@@ -61,7 +67,6 @@ export const LoginPage: React.FC = () => {
               value={identifier}
               onChange={event => setIdentifier(event.target.value)}
               onPressEnter={submit}
-              disabled={!API_CONFIGURED || loading}
             />
           </div>
           <div>
@@ -75,7 +80,6 @@ export const LoginPage: React.FC = () => {
               value={password}
               onChange={event => setPassword(event.target.value)}
               onPressEnter={submit}
-              disabled={!API_CONFIGURED || loading}
             />
           </div>
           <Button
@@ -83,7 +87,7 @@ export const LoginPage: React.FC = () => {
             size="large"
             block
             loading={loading}
-            disabled={!API_CONFIGURED || !identifier.trim() || !password}
+            disabled={!identifier.trim() || !password}
             onClick={submit}
             style={{ height: 48, borderRadius: 10, fontWeight: 700, marginTop: 5 }}
           >
