@@ -31,6 +31,7 @@ const statusColor: Record<string, string> = {
 export const PartnerDashboardPage: React.FC = () => {
   const location = useLocation();
   const { user } = useAuthStore();
+  const isDevPreview = import.meta.env.DEV && localStorage.getItem('access_token') === 'jinni-local-restaurant-preview';
   const restaurant = (user?.role || '').toLowerCase().includes('restaurant');
   const base = restaurant ? '/restaurant' : '/store';
   const section = location.pathname.split('/').filter(Boolean)[1] || 'dashboard';
@@ -158,7 +159,8 @@ export const PartnerDashboardPage: React.FC = () => {
     setSaving(true);
     try {
       await action();
-      message.success(successText);
+      if (isDevPreview) message.info('Preview only — this change was not saved.');
+      else message.success(successText);
       await fetchData(true);
       return true;
     } catch (error: any) {
@@ -192,7 +194,8 @@ export const PartnerDashboardPage: React.FC = () => {
       } else {
         await apiClient.patch(`/orders/${order.id}/status`, { status: action });
       }
-      message.success(action === 'accept' ? 'Order accepted' : action === 'decline' ? 'Order declined' : 'Order status updated');
+      if (isDevPreview) message.info('Preview only — this change was not saved.');
+      else message.success(action === 'accept' ? 'Order accepted' : action === 'decline' ? 'Order declined' : 'Order status updated');
       setDeclineOrder(null);
       setDeclineReason('');
       await fetchData(true);
@@ -390,10 +393,12 @@ export const PartnerDashboardPage: React.FC = () => {
       <div>
         <div className="section-kicker">{restaurant ? 'RESTAURANT PARTNER' : 'GROCERY STORE PARTNER'}</div>
         <Title level={2}>{pageTitle}</Title>
-        <Text type="secondary">{profile?.name || profile?.store_name || user?.name || 'Jinni partner'} · Live account data</Text>
+        <Text type="secondary">{profile?.name || profile?.store_name || user?.name || 'Jinni partner'} · {isDevPreview ? 'Development sample data' : 'Live account data'}</Text>
       </div>
       <Button icon={<ReloadOutlined/>} loading={refreshing || loading} onClick={() => {setRefreshing(true);void fetchData(true);}}>Refresh</Button>
     </div>
+
+    {isDevPreview && <Alert type="info" showIcon message="Development preview mode" description="You are viewing sample restaurant data. Dashboard actions are simulated locally and are not saved to the Jinni backend." style={{marginBottom:18}}/>}
 
     {pageError && <Alert type="error" showIcon message="Could not load live data" description={pageError} action={<Button size="small" onClick={() => void fetchData()}>Retry</Button>} style={{marginBottom:18}}/>}
 
