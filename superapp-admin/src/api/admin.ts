@@ -46,3 +46,25 @@ export interface OrderListParams {
 
 export const getOrders = (params: OrderListParams = {}) =>
   apiClient.get('/admin/orders', { params });
+
+
+// ── Grocery catalogue (admin / store permissions enforced by the API) ────────
+export interface ProductListParams {
+  category_id?: string;
+  search?: string;
+  page?: number;
+  page_size?: number;
+}
+export const getProducts = (params: ProductListParams = {}) =>
+  apiClient.get('/grocery/products', { params });
+export const getCategories = () => apiClient.get('/grocery/categories');
+export const createProduct = (payload: Record<string, unknown>) =>
+  apiClient.post('/grocery/admin/products', payload);
+export const updateProduct = (productId: string, payload: Record<string, unknown>) =>
+  apiClient.put(`/grocery/products/${productId}`, payload);
+export const deleteProduct = (productId: string) =>
+  apiClient.delete(`/grocery/products/${productId}`);
+export const lookupBarcode = (barcode: string) =>
+  apiClient.get(`/grocery/barcode/${encodeURIComponent(barcode)}`);
+export const uploadProductImage = (formData: FormData) =>
+  apiClient.post('/grocery/products/upload-image', formData);
