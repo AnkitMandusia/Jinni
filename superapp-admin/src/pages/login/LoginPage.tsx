@@ -16,7 +16,7 @@ const homeForRole = (role?: string) => {
 
 export const LoginPage: React.FC = () => {
   const navigate = useNavigate();
-  const { loginWithPassword, loading, error, clearError, user } = useAuthStore();
+  const { loginWithPassword, loading, error, clearError } = useAuthStore();
   const [identifier, setIdentifier] = useState('');
   const [password, setPassword] = useState('');
 
