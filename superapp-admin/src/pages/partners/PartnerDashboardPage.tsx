@@ -37,7 +37,7 @@ export const PartnerDashboardPage: React.FC = () => {
         }
       } else {
         const [dash, business, orderRes] = await Promise.all([
-          apiClient.get('/store/dashboard'), apiClient.get('/store/profile'), apiClient.get('/orders/pending'),
+          apiClient.get('/store/dashboard'), apiClient.get('/store/profile'), apiClient.get('/orders/my-orders', { params: { page_size: 50 } }),
         ]);
         setStats(dash || {}); setProfile(business || {}); setOrders(listFrom(orderRes, ['orders','items']));
         if (section === 'catalog') {
