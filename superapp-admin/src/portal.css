@@ -53,7 +53,7 @@
  .mobile-product-row{display:flex;align-items:center;justify-content:space-between;gap:14px;margin-bottom:10px}
  .mobile-product-row>div{min-width:0}
  .mobile-product-row .ant-typography{display:block;overflow-wrap:anywhere}
- .mobile-product-list+.ant-table-wrapper{display:none}
+ .desktop-product-table{display:none!important}
  .setup-page{margin:10px auto}
  .setup-card{padding:0}
  .location-button-col{padding:0 8px 20px}
