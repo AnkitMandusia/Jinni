@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
-import { Card, Input, Button, Typography, Alert, Steps, Space, Divider } from 'antd';
-import { MobileOutlined, SafetyOutlined, LockOutlined, MailOutlined } from '@ant-design/icons';
+import { Alert, Button, Card, Divider, Input, Space, Typography } from 'antd';
+import { LockOutlined, MailOutlined, EyeInvisibleOutlined, EyeTwoTone } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../../store/authStore';
+import { API_CONFIGURED } from '../../api/client';
 
 const { Title, Text } = Typography;
 
@@ -15,105 +16,103 @@ const homeForRole = (role?: string) => {
 
 export const LoginPage: React.FC = () => {
   const navigate = useNavigate();
-  const { sendOTP, verifyOTP, loginWithDevMock, loading, error } = useAuthStore();
-  const [step, setStep] = useState<'phone' | 'otp'>('phone');
-  const [phone, setPhone] = useState('');
-  const [otp, setOtp] = useState('');
-  const [localError, setLocalError] = useState('');
+  const { loginWithPassword, loginWithDevMock, loading, error, clearError } = useAuthStore();
+  const [identifier, setIdentifier] = useState('');
+  const [password, setPassword] = useState('');
   const [devEmail, setDevEmail] = useState('resturant@test.com');
   const [devPassword, setDevPassword] = useState('');
 
-  const handleSendOTP = async () => {
-    setLocalError('');
-    const cleaned = phone.replace(/\s/g, '');
-    if (!cleaned || cleaned.replace(/\D/g, '').length < 10) {
-      setLocalError('Enter a valid phone number');
-      return;
-    }
-    try {
-      await sendOTP(cleaned);
-      setStep('otp');
-    } catch (e: any) {
-      setLocalError(e.message);
+  const submit = async () => {
+    clearError();
+    if (!identifier.trim() || !password) return;
+    const success = await loginWithPassword(identifier.trim(), password);
+    if (success) {
+      const currentUser = useAuthStore.getState().user;
+      navigate(currentUser?.status === 'active' ? homeForRole(currentUser.role) : '/account-status', { replace: true });
     }
   };
 
-  const handleVerifyOTP = async () => {
-    setLocalError('');
-    if (!otp || otp.length < 4) {
-      setLocalError('Enter the OTP');
-      return;
-    }
-    const success = await verifyOTP(phone, otp);
-    if (success) navigate(homeForRole(useAuthStore.getState().user?.role));
-    else setLocalError(useAuthStore.getState().error || error || 'Invalid OTP or account access denied');
-  };
-
-  const handleDevLogin = async () => {
-    setLocalError('');
+  const submitDevPreview = async () => {
+    clearError();
     const success = await loginWithDevMock(devEmail, devPassword);
-    if (success) navigate('/restaurant');
-    else setLocalError(useAuthStore.getState().error || 'Development preview login failed');
+    if (success) navigate('/restaurant', { replace: true });
   };
 
-  return <div style={{ minHeight: '100vh', background: 'linear-gradient(135deg,#111827 0%,#312e81 100%)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
-    <Card style={{ width: '100%', maxWidth: 430, borderRadius: 20, boxShadow: '0 20px 60px rgba(0,0,0,.25)' }} bodyStyle={{ padding: 36 }}>
-      <div style={{ textAlign: 'center', marginBottom: 28 }}>
-        <div style={{ fontSize: 42, marginBottom: 8 }}>✦</div>
-        <Title level={2} style={{ margin: 0 }}>Jinni Partner Portal</Title>
-        <Text type="secondary">One secure login for Admin, Restaurant and Grocery Store</Text>
-      </div>
-      <Steps current={step === 'phone' ? 0 : 1} size="small" style={{ marginBottom: 24 }} items={[{ title: 'Phone', icon: <MobileOutlined /> }, { title: 'OTP', icon: <SafetyOutlined /> }]} />
-      {(localError || error) && <Alert message={localError || error} type="error" showIcon style={{ marginBottom: 18 }} />}
-      {step === 'phone' ? <Space direction="vertical" size="middle" style={{ width: '100%' }}>
-        <Text strong>Registered phone number</Text>
-        <Input size="large" prefix={<MobileOutlined />} placeholder="Enter registered phone number" value={phone} onChange={e => setPhone(e.target.value)} onPressEnter={handleSendOTP} maxLength={15} />
-        <Button type="primary" size="large" block loading={loading} onClick={handleSendOTP}>Send OTP</Button>
-      </Space> : <Space direction="vertical" size="middle" style={{ width: '100%' }}>
-        <Text strong>Enter the OTP sent to {phone}</Text>
-        <Input size="large" prefix={<LockOutlined />} placeholder="6-digit OTP" value={otp} onChange={e => setOtp(e.target.value.replace(/\D/g, ''))} onPressEnter={handleVerifyOTP} maxLength={6} />
-        <Button type="primary" size="large" block loading={loading} onClick={handleVerifyOTP}>Verify & Continue</Button>
-        <Button type="link" block onClick={() => { setStep('phone'); setOtp(''); }}>Change phone number</Button>
-      </Space>}
+  return (
+    <div style={{ minHeight: '100vh', padding: 20, display: 'grid', placeItems: 'center', background: 'radial-gradient(circle at 15% 10%, #eef2ff 0, #f8fafc 42%, #f1f5f9 100%)' }}>
+      <Card bordered={false} style={{ width: '100%', maxWidth: 430, borderRadius: 22, boxShadow: '0 22px 70px rgba(15,23,42,.12)' }} bodyStyle={{ padding: 36 }}>
+        <div style={{ textAlign: 'center', marginBottom: 30 }}>
+          <div style={{ width: 54, height: 54, margin: '0 auto 14px', borderRadius: 18, display: 'grid', placeItems: 'center', background: '#d9ef73', color: '#20241d', fontSize: 32, fontWeight: 800 }}>j</div>
+          <Title level={2} style={{ margin: 0, letterSpacing: -1 }}>Welcome back</Title>
+          <Text type="secondary">Sign in with the same Jinni account you use in the mobile app.</Text>
+        </div>
 
-      {import.meta.env.DEV && <>
-        <Divider plain style={{ margin: '26px 0 18px' }}>Development preview</Divider>
-        <Alert
-          type="info"
-          showIcon
-          message="Local-only demo access"
-          description="This mock account is enabled only with the Vite development server. It does not authenticate with or modify the live Jinni backend."
-          style={{ marginBottom: 16 }}
-        />
-        <Space direction="vertical" size="middle" style={{ width: '100%' }}>
-          <Input
+        {!API_CONFIGURED && <Alert type="error" showIcon style={{ marginBottom: 18 }} message="Backend API URL is not configured" description="Add VITE_API_URL to the Jinni Vercel project. Use your deployed FastAPI origin without /api/v1 or a trailing slash, then redeploy." />}
+        {error && <Alert type="error" showIcon style={{ marginBottom: 18 }} message={error} />}
+
+        <Space direction="vertical" size={16} style={{ width: '100%' }}>
+          <div>
+            <Text strong style={{ display: 'block', marginBottom: 7 }}>Email or phone number</Text>
+            <Input
+              size="large"
+              autoComplete="username"
+              prefix={<MailOutlined />}
+              placeholder="you@example.com or 9876543210"
+              value={identifier}
+              onChange={event => setIdentifier(event.target.value)}
+              onPressEnter={submit}
+              disabled={!API_CONFIGURED || loading}
+            />
+          </div>
+          <div>
+            <Text strong style={{ display: 'block', marginBottom: 7 }}>Password</Text>
+            <Input.Password
+              size="large"
+              autoComplete="current-password"
+              prefix={<LockOutlined />}
+              iconRender={visible => visible ? <EyeTwoTone /> : <EyeInvisibleOutlined />}
+              placeholder="Enter your password"
+              value={password}
+              onChange={event => setPassword(event.target.value)}
+              onPressEnter={submit}
+              disabled={!API_CONFIGURED || loading}
+            />
+          </div>
+          <Button
+            type="primary"
             size="large"
-            prefix={<MailOutlined />}
-            type="email"
-            aria-label="Development preview email"
-            value={devEmail}
-            onChange={event => setDevEmail(event.target.value)}
-            placeholder="Development email"
-          />
-          <Input.Password
-            size="large"
-            prefix={<LockOutlined />}
-            aria-label="Development preview password"
-            value={devPassword}
-            onChange={event => setDevPassword(event.target.value)}
-            onPressEnter={handleDevLogin}
-            placeholder="Development password"
-          />
-          <Button type="default" size="large" block loading={loading} onClick={handleDevLogin}>
-            Open Restaurant Dashboard (Demo)
+            block
+            loading={loading}
+            disabled={!API_CONFIGURED || !identifier.trim() || !password}
+            onClick={submit}
+            style={{ height: 48, borderRadius: 10, fontWeight: 700, marginTop: 5 }}
+          >
+            Sign in
           </Button>
         </Space>
-      </>}
-      <Text type="secondary" style={{ display: 'block', textAlign: 'center', marginTop: 24, fontSize: 12 }}>
-        Your account role determines which dashboard you can access.
-      </Text>
-    </Card>
-  </div>;
+
+        {import.meta.env.DEV && <>
+          <Divider plain style={{ margin: '26px 0 18px' }}>Development preview</Divider>
+          <Alert type="info" showIcon style={{ marginBottom: 16 }}
+            message="Local-only restaurant demo"
+            description="Uses sample data only. Orders, menu and profile changes are simulated and are not saved to the Jinni backend." />
+          <Space direction="vertical" size={12} style={{ width: '100%' }}>
+            <Input size="large" prefix={<MailOutlined />} type="email" aria-label="Development preview email"
+              value={devEmail} onChange={event => setDevEmail(event.target.value)} placeholder="Development email" />
+            <Input.Password size="large" prefix={<LockOutlined />} aria-label="Development preview password"
+              value={devPassword} onChange={event => setDevPassword(event.target.value)}
+              onPressEnter={submitDevPreview} placeholder="Development password" />
+            <Button size="large" block loading={loading} onClick={submitDevPreview}>
+              Open Restaurant Dashboard (Demo)
+            </Button>
+          </Space>
+        </>}
+        <div style={{ marginTop: 24, paddingTop: 20, borderTop: '1px solid #f0f0f0', textAlign: 'center' }}>
+          <Text type="secondary" style={{ fontSize: 12 }}>Your existing account role decides which portal opens: Admin, Restaurant or Grocery Store.</Text>
+        </div>
+      </Card>
+    </div>
+  );
 };
 
 export default LoginPage;
