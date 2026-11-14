@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Layout, Menu, Avatar, Dropdown, Typography, Badge, Space } from 'antd';
-import { DashboardOutlined, UserOutlined, ShoppingOutlined, CarOutlined, LogoutOutlined, MenuFoldOutlined, MenuUnfoldOutlined, BellOutlined, ShopOutlined, AppstoreOutlined, UnorderedListOutlined, SettingOutlined } from '@ant-design/icons';
+import { DashboardOutlined, UserOutlined, ShoppingOutlined, CarOutlined, LogoutOutlined, MenuFoldOutlined, MenuUnfoldOutlined, BellOutlined, AppstoreOutlined, SettingOutlined } from '@ant-design/icons';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuthStore } from '../store/authStore';
 const { Header, Sider, Content } = Layout; const { Text } = Typography;
@@ -22,7 +22,7 @@ export const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
     { key: '/orders', icon: <ShoppingOutlined />, label: 'All Orders' },
     { key: '/delivery', icon: <CarOutlined />, label: 'Delivery Agents' },
   ];
-  const selected = menuItems.find(item => item.key === location.pathname)?.key || (partner ? base : '/');
+  const selected = menuItems.find(item => item.key === location.pathname)?.key || (partner ? base : '/admin');
   const userMenuItems = [{ key: 'logout', icon: <LogoutOutlined />, label: 'Logout', danger: true, onClick: () => { logout(); navigate('/login'); } }];
   return <Layout style={{ minHeight: '100vh' }}>
     <Sider collapsible collapsed={collapsed} trigger={null} breakpoint="lg" onBreakpoint={broken => setCollapsed(broken)} width={232} style={{ background: '#111827', boxShadow: '2px 0 12px rgba(0,0,0,.12)' }}>
