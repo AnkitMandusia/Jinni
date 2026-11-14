@@ -65,7 +65,7 @@ export const ProductListPage: React.FC = () => {
   const fetchCategories = useCallback(async () => {
     try {
       const res = await getCategories();
-      setCategories(res?.items ?? []);
+      setCategories(res.data?.items ?? []);
     } catch { /* ignore */ }
   }, []);
 
@@ -76,8 +76,8 @@ export const ProductListPage: React.FC = () => {
       if (search) params.search = search;
       if (categoryFilter) params.category_id = categoryFilter;
       const res = await getProducts(params);
-      setProducts(res?.items ?? []);
-      setTotal(res?.total ?? 0);
+      setProducts(res.data?.items ?? []);
+      setTotal(res.data?.total ?? 0);
       setPage(p);
     } catch { /* ignore */ }
     finally { setLoading(false); }
@@ -93,7 +93,7 @@ export const ProductListPage: React.FC = () => {
     setBarcodeLoading(true);
     try {
       const res = await lookupBarcode(code);
-      const d = res;
+      const d = res.data;
       if (!d?.found) { message.warning(`No product found for barcode ${code}`); return; }
       form.setFieldsValue({
         name: d.name ?? '',
@@ -115,10 +115,10 @@ export const ProductListPage: React.FC = () => {
       const fd = new FormData();
       fd.append('file', file as File);
       const res = await uploadProductImage(fd);
-      const url: string = res?.image_url;
+      const url: string = res.data?.image_url;
       setImageUrl(url);
       form.setFieldValue('primary_image_url', url);
-      onSuccess?.(res);
+      onSuccess?.(res.data);
       message.success('Image uploaded successfully');
     } catch (e: any) {
       onError?.(e);

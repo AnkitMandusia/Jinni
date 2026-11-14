@@ -48,12 +48,12 @@ export const PartnerDashboardPage: React.FC = () => {
           apiClient.get('/food/partner/orders', { params: { page_size: 50 } }),
           apiClient.get('/food/partner/categories'),
         ]);
-        const dash: any = dashResponse;
-        const business: any = profileResponse;
+        const dash: any = (dashResponse as any).data;
+        const business: any = (profileResponse as any).data;
         setStats(dash || {});
         setProfile(business || {});
-        setOrders(listFrom(orderResponse, ['orders', 'items']));
-        const categoryList = listFrom(categoryResponse);
+        setOrders(listFrom((orderResponse as any).data, ['orders', 'items']));
+        const categoryList = listFrom((categoryResponse as any).data);
         setCategories(categoryList);
         if (section === 'catalog') {
           setProducts(categoryList.flatMap((category: AnyRow) =>
@@ -77,7 +77,7 @@ export const PartnerDashboardPage: React.FC = () => {
             apiClient.get('/grocery/store/products'),
           ]);
           setCategories(listFrom(categoryResponse));
-          const catalogue: any = productResponse;
+          const catalogue: any = (productResponse as any).data;
           setProducts([
             ...listFrom(catalogue, ['universal']),
             ...listFrom(catalogue, ['custom']),
