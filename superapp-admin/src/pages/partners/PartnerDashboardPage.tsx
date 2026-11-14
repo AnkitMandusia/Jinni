@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   Alert, Button, Card, Col, Descriptions, Divider, Empty, Form, Input, InputNumber,
-  Modal, Row, Select, Space, Spin, Statistic, Switch, Table, Tag, Typography, message,
+  Modal, Row, Segmented, Select, Space, Spin, Statistic, Switch, Table, Tag, Typography, message,
 } from 'antd';
 import {
   PlusOutlined, ReloadOutlined, ShopOutlined, ShoppingOutlined, DollarOutlined,
@@ -39,6 +39,7 @@ export const PartnerDashboardPage: React.FC = () => {
   const [stats, setStats] = useState<RowData | null>(null);
   const [profile, setProfile] = useState<RowData | null>(null);
   const [orders, setOrders] = useState<RowData[]>([]);
+  const [orderTab, setOrderTab] = useState<'active' | 'completed' | 'all'>('active');
   const [pendingOrders, setPendingOrders] = useState<RowData[]>([]);
   const [categories, setCategories] = useState<RowData[]>([]);
   const [products, setProducts] = useState<RowData[]>([]);
@@ -221,12 +222,7 @@ export const PartnerDashboardPage: React.FC = () => {
   });
 
   const saveCategory = async (values: RowData) => {
-    const ok = await runAction(
-      () => editingMenuItem?.category_id
-        ? apiClient.post('/food/partner/categories', values)
-        : apiClient.post('/food/partner/categories', values),
-      'Menu category created',
-    );
+    const ok = await runAction(() => apiClient.post('/food/partner/categories', values), 'Menu category created');
     if (ok) { setCategoryOpen(false); categoryForm.resetFields(); }
   };
 
@@ -295,6 +291,12 @@ export const PartnerDashboardPage: React.FC = () => {
       { enableHighAccuracy: true, timeout: 12000 },
     );
   };
+
+  const visibleOrders = useMemo(() => orderTab === 'active'
+    ? orders.filter(order => !isTerminal(order.status))
+    : orderTab === 'completed'
+      ? orders.filter(order => isTerminal(order.status))
+      : orders, [orders, orderTab]);
 
   const pageTitle = section === 'orders' ? 'Orders'
     : section === 'catalog' ? (restaurant ? 'Menu & Categories' : 'Products & Stock')
@@ -408,8 +410,8 @@ export const PartnerDashboardPage: React.FC = () => {
       </Card>
     </>}
 
-    {section === 'orders' && <Card className="portal-card" title="All orders">
-      <Table rowKey="id" loading={loading || refreshing} columns={orderColumns} dataSource={orders} pagination={{pageSize:10,showSizeChanger:true}} scroll={{x:950}} locale={{emptyText:<Empty description={pageError ? 'Orders could not be loaded' : 'No orders found for this account'}/>}}/>
+    {section === 'orders' && <Card className="portal-card" title="Orders" extra={<Segmented value={orderTab} onChange={value=>setOrderTab(value as 'active'|'completed'|'all')} options={[{label:'Active',value:'active'},{label:'Completed',value:'completed'},{label:'All',value:'all'}]}/>}> 
+      <Table rowKey="id" loading={loading || refreshing} columns={orderColumns} dataSource={visibleOrders} pagination={{pageSize:10,showSizeChanger:true}} scroll={{x:950}} locale={{emptyText:<Empty description={pageError ? 'Orders could not be loaded' : orderTab==='active' ? 'No active orders' : orderTab==='completed' ? 'No completed orders' : 'No orders found for this account'}/>}}/>
     </Card>}
 
     {section === 'catalog' && restaurant && <Card className="portal-card" title="Menu & categories" extra={<Space wrap><Button onClick={()=>{categoryForm.resetFields();setCategoryOpen(true);}}>Add category</Button></Space>}>
