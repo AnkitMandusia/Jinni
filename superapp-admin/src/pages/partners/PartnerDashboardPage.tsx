@@ -24,7 +24,6 @@ export const PartnerDashboardPage: React.FC = () => {
   const location = useLocation();
   const { user } = useAuthStore();
   const restaurant = (user?.role || '').toLowerCase().includes('restaurant');
-  const base = restaurant ? '/food/partner' : '';
   const section = location.pathname.split('/').filter(Boolean)[1] || 'dashboard';
   const [stats, setStats] = useState<AnyRow>({});
   const [profile, setProfile] = useState<AnyRow>({});
