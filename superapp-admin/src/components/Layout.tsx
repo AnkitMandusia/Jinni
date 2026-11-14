@@ -29,7 +29,7 @@ export const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
     { key: '/orders', icon: <ShoppingOutlined />, label: 'All Orders' },
     { key: '/delivery', icon: <CarOutlined />, label: 'Delivery Agents' },
   ];
-  const selected = menuItems.find(item => item.key === location.pathname)?.key || (partner ? base : '/admin');
+  const selected = menuItems.find(item => location.pathname === item.key || location.pathname.startsWith(item.key + '/'))?.key || (partner ? base : '/admin');
   const go = (key: string) => { navigate(key); setMobileOpen(false); };
   const navMenu = <Menu theme="dark" mode="inline" selectedKeys={[selected]} items={menuItems} onClick={({ key }) => go(key)} style={{ marginTop: 10, background: 'transparent', border: 0 }} />;
   const userMenuItems = [{ key: 'logout', icon: <LogoutOutlined />, label: 'Logout', danger: true, onClick: async () => { await logout(); navigate('/login', { replace: true }); } }];
