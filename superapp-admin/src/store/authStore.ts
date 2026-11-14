@@ -19,6 +19,7 @@ interface AuthState {
   initialized: boolean;
   error: string | null;
   loginWithPassword: (identifier: string, password: string) => Promise<boolean>;
+  loginWithDevMock: (email: string, password: string) => Promise<boolean>;
   logout: () => Promise<void>;
   init: () => Promise<void>;
   clearError: () => void;
@@ -29,10 +30,19 @@ const allowedRole = (role?: string) => {
   return value === 'admin' || value === 'super_admin' || value.includes('restaurant') || value === 'store' || value.includes('grocery');
 };
 
+const DEV_MOCK_EMAIL = 'resturant@test.com';
+const DEV_MOCK_PASSWORD_SHA256 = 'd9b5f58f0b38198293971865a14074f59eba3e82595becbe86ae51f1d9f1f65e';
+const DEV_MOCK_TOKEN = 'jinni-local-restaurant-preview';
+
 const clearPersistedSession = () => {
   localStorage.removeItem('access_token');
   localStorage.removeItem('refresh_token');
   localStorage.removeItem('admin_user');
+};
+
+const sha256 = async (value: string) => {
+  const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(value));
+  return Array.from(new Uint8Array(digest)).map(byte => byte.toString(16).padStart(2, '0')).join('');
 };
 
 export const useAuthStore = create<AuthState>((set, get) => ({
@@ -61,13 +71,18 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       return;
     }
 
-    if (!cachedUser || !allowedRole(cachedUser.role)) {
+    if (!cachedUser || !allowedRole(cachedUser.role) || (token === DEV_MOCK_TOKEN && !import.meta.env.DEV)) {
       clearPersistedSession();
       set({ initialized: true });
       return;
     }
 
     set({ token, user: cachedUser });
+    if (import.meta.env.DEV && token === DEV_MOCK_TOKEN) {
+      set({ initialized: true });
+      return;
+    }
+
     try {
       const response = await apiClient.get('/auth/status');
       const freshUser = {
@@ -84,9 +99,6 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         set({ user: freshUser, token: localStorage.getItem('access_token') || token });
       }
     } catch (err: any) {
-      // Keep the cached identity on temporary network/API failures. The real
-      // API call will surface its error in the page; expired sessions are
-      // cleared by the shared 401/refresh interceptor.
       if (err?.response?.status === 401) {
         clearPersistedSession();
         set({ token: null, user: null });
@@ -99,7 +111,6 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   loginWithPassword: async (identifier, password) => {
     set({ loading: true, error: null });
     try {
-      // Same endpoint and request contract as mobile authStore.loginWithPassword().
       const response = await apiClient.post('/auth/login', { identifier, password });
       const { access_token, refresh_token, user } = response.data || {};
       if (!access_token || !refresh_token || !user || !allowedRole(user.role)) {
@@ -113,20 +124,54 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       set({ token: access_token, user, loading: false, initialized: true, error: null });
       return true;
     } catch (err: any) {
-      const detail = err?.response?.data?.detail;
       set({
-        error: detail || (err?.response ? 'Invalid email/phone or password.' : 'Could not reach the Jinni API. Check the backend URL and connection.'),
+        error: err?.response?.data?.detail || (err?.response ? 'Invalid email/phone or password.' : 'Could not reach the Jinni API. Check the backend URL and connection.'),
         loading: false,
       });
       return false;
     }
   },
 
-  logout: async () => {
+  loginWithDevMock: async (email, password) => {
+    set({ loading: true, error: null });
     try {
-      if (get().token) await apiClient.post('/auth/logout', {});
-    } catch {
-      // Continue with local sign-out even when the API is unreachable.
+      if (!import.meta.env.DEV) {
+        set({ error: 'Development preview login is disabled in this build.' });
+        return false;
+      }
+      const passwordHash = await sha256(password);
+      if (email.trim().toLowerCase() !== DEV_MOCK_EMAIL || passwordHash !== DEV_MOCK_PASSWORD_SHA256) {
+        set({ error: 'Incorrect development preview email or password.' });
+        return false;
+      }
+
+      const user: AuthUser = {
+        id: 'dev-restaurant-preview',
+        phone: '9999999999',
+        email: DEV_MOCK_EMAIL,
+        name: 'Jinni Demo Restaurant',
+        role: 'restaurant',
+        status: 'active',
+        profile_complete: true,
+      };
+      localStorage.setItem('access_token', DEV_MOCK_TOKEN);
+      localStorage.setItem('admin_user', JSON.stringify(user));
+      localStorage.removeItem('refresh_token');
+      set({ token: DEV_MOCK_TOKEN, user, initialized: true, error: null });
+      return true;
+    } finally {
+      set({ loading: false });
+    }
+  },
+
+  logout: async () => {
+    const token = get().token;
+    if (token && token !== DEV_MOCK_TOKEN) {
+      try {
+        await apiClient.post('/auth/logout', {});
+      } catch {
+        // Continue with local sign-out even when the API is unreachable.
+      }
     }
     clearPersistedSession();
     set({ token: null, user: null, error: null, loading: false, initialized: true });

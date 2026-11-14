@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Alert, Button, Card, Input, Space, Typography } from 'antd';
+import { Alert, Button, Card, Divider, Input, Space, Typography } from 'antd';
 import { LockOutlined, MailOutlined, EyeInvisibleOutlined, EyeTwoTone } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../../store/authStore';
@@ -16,19 +16,26 @@ const homeForRole = (role?: string) => {
 
 export const LoginPage: React.FC = () => {
   const navigate = useNavigate();
-  const { loginWithPassword, loading, error, clearError } = useAuthStore();
+  const { loginWithPassword, loginWithDevMock, loading, error, clearError } = useAuthStore();
   const [identifier, setIdentifier] = useState('');
   const [password, setPassword] = useState('');
+  const [devEmail, setDevEmail] = useState('resturant@test.com');
+  const [devPassword, setDevPassword] = useState('');
 
   const submit = async () => {
     clearError();
-    if (!identifier.trim()) return;
-    if (!password) return;
+    if (!identifier.trim() || !password) return;
     const success = await loginWithPassword(identifier.trim(), password);
     if (success) {
       const currentUser = useAuthStore.getState().user;
       navigate(currentUser?.status === 'active' ? homeForRole(currentUser.role) : '/account-status', { replace: true });
     }
+  };
+
+  const submitDevPreview = async () => {
+    clearError();
+    const success = await loginWithDevMock(devEmail, devPassword);
+    if (success) navigate('/restaurant', { replace: true });
   };
 
   return (
@@ -83,6 +90,23 @@ export const LoginPage: React.FC = () => {
             Sign in
           </Button>
         </Space>
+
+        {import.meta.env.DEV && <>
+          <Divider plain style={{ margin: '26px 0 18px' }}>Development preview</Divider>
+          <Alert type="info" showIcon style={{ marginBottom: 16 }}
+            message="Local-only restaurant demo"
+            description="Uses sample data only. Orders, menu and profile changes are simulated and are not saved to the Jinni backend." />
+          <Space direction="vertical" size={12} style={{ width: '100%' }}>
+            <Input size="large" prefix={<MailOutlined />} type="email" aria-label="Development preview email"
+              value={devEmail} onChange={event => setDevEmail(event.target.value)} placeholder="Development email" />
+            <Input.Password size="large" prefix={<LockOutlined />} aria-label="Development preview password"
+              value={devPassword} onChange={event => setDevPassword(event.target.value)}
+              onPressEnter={submitDevPreview} placeholder="Development password" />
+            <Button size="large" block loading={loading} onClick={submitDevPreview}>
+              Open Restaurant Dashboard (Demo)
+            </Button>
+          </Space>
+        </>}
         <div style={{ marginTop: 24, paddingTop: 20, borderTop: '1px solid #f0f0f0', textAlign: 'center' }}>
           <Text type="secondary" style={{ fontSize: 12 }}>Your existing account role decides which portal opens: Admin, Restaurant or Grocery Store.</Text>
         </div>
