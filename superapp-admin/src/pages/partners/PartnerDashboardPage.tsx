@@ -32,8 +32,8 @@ export const PartnerDashboardPage: React.FC = () => {
         ]);
         setStats(dash || {}); setProfile(business || {}); setOrders(listFrom(orderRes, ['orders','items']));
         if (section === 'catalog') {
-          const [cats, menu] = await Promise.all([apiClient.get('/food/partner/categories'), apiClient.get('/food/partner/menu-items')]);
-          setCategories(listFrom(cats)); setProducts(listFrom(menu, ['menu_items','items']));
+          const [cats, menu] = await Promise.all([apiClient.get('/food/partner/categories'), apiClient.get('/food/partner/categories')]);
+          setCategories(listFrom(cats)); setProducts(listFrom(cats).flatMap((category: AnyRow) => (category.items || []).map((item: AnyRow) => ({ ...item, category_name: category.name }))));
         }
       } else {
         const [dash, business, orderRes] = await Promise.all([
@@ -58,7 +58,7 @@ export const PartnerDashboardPage: React.FC = () => {
     return act(() => apiClient.patch(`/orders/${order.id}/status`, { status: action }), 'Order status updated');
   };
   const toggleAvailability = (item: AnyRow, available: boolean) => {
-    if (restaurant) return act(() => apiClient.post(`/food/partner/menu-items/${item.id}/availability`, null, { params: { is_available: available } }), 'Menu availability updated');
+    if (restaurant) return act(() => apiClient.post(`/food/partner/menu-items/${item.id}/availability`, { is_available: available }), 'Menu availability updated');
     const id = item.product_id || item.id;
     const url = item.product_id ? `/grocery/store/products/${id}/toggle` : `/grocery/store/custom-products/${id}/toggle`;
     return act(() => apiClient.post(url, { is_available: available }), 'Product availability updated');
@@ -82,8 +82,7 @@ export const PartnerDashboardPage: React.FC = () => {
     { title: 'Actions', key: 'actions', render: (_: any, row: AnyRow) => {
       if (['delivered','cancelled','rejected'].includes(row.status)) return <Text type="secondary">Completed</Text>;
       if (row.status === 'pending_dispatch') return <Space wrap><Button size="small" type="primary" onClick={() => orderAction(row, restaurant ? 'store_accepted' : 'accept')}>Accept</Button><Button size="small" danger onClick={() => orderAction(row, restaurant ? 'rejected' : 'decline')}>Decline</Button></Space>;
-      const next = row.status === 'store_accepted' ? 'preparing' : row.status === 'preparing' ? 'ready_for_pickup' : '';
-      return next ? <Button size="small" type="primary" onClick={() => orderAction(row, next)}>{next === 'preparing' ? 'Start preparing' : 'Mark ready'}</Button> : <Text type="secondary">In progress</Text>;
+      return <Text type="secondary">In progress · status updates are managed in the order workflow</Text>;
     }},
   ];
   const productColumns = [
@@ -102,7 +101,7 @@ export const PartnerDashboardPage: React.FC = () => {
     ? apiClient.patch('/food/partner/restaurant', values)
     : apiClient.patch('/store/profile', values), 'Business profile saved');
   const toggleRestaurant = (key: 'is_open' | 'is_accepting_orders', value: boolean) => act(() => apiClient.post(key === 'is_open' ? '/food/partner/toggle-open' : '/food/partner/toggle-accepting', null, { params: { [key]: value } }), 'Restaurant status updated');
-  const toggleStore = (value: boolean) => act(() => apiClient.patch('/store/profile', { ...profile, is_open: value }), 'Store status updated');
+  const toggleStore = (value: boolean) => act(() => apiClient.patch('/store/profile', { is_open: value }), 'Store status updated');
   return <div>
     <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',gap:12,flexWrap:'wrap',marginBottom:22}}>
       <div><Title level={3} style={{margin:0}}>{section === 'orders' ? 'Orders' : section === 'catalog' ? (restaurant ? 'Menu & Categories' : 'Products & Stock') : section === 'profile' ? 'Business Profile' : 'Dashboard'}</Title><Text type="secondary">{profile.name || user?.name || title} · Jinni Partner Portal</Text></div>

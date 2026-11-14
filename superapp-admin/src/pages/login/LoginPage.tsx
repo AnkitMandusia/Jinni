@@ -12,7 +12,7 @@ const homeForRole = (role?: string) => {
 };
 export const LoginPage: React.FC = () => {
   const navigate = useNavigate();
-  const { sendOTP, verifyOTP, loading, error, user } = useAuthStore();
+  const { sendOTP, verifyOTP, loading, error } = useAuthStore();
   const [step, setStep] = useState<'phone' | 'otp'>('phone');
   const [phone, setPhone] = useState(''); const [otp, setOtp] = useState(''); const [localError, setLocalError] = useState('');
   const handleSendOTP = async () => {
