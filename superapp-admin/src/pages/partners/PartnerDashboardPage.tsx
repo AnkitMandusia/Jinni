@@ -6,7 +6,6 @@ import {
 import {
   PlusOutlined, ReloadOutlined, ShopOutlined, ShoppingOutlined, DollarOutlined,
   ClockCircleOutlined, EnvironmentOutlined, EditOutlined, DeleteOutlined,
-  CheckCircleOutlined, ExclamationCircleOutlined, InboxOutlined,
 } from '@ant-design/icons';
 import { useLocation } from 'react-router-dom';
 import apiClient from '../../api/client';
@@ -46,6 +45,7 @@ export const PartnerDashboardPage: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [pageError, setPageError] = useState('');
+  const [pendingError, setPendingError] = useState('');
   const [setupRequired, setSetupRequired] = useState(false);
   const [saving, setSaving] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
@@ -64,6 +64,7 @@ export const PartnerDashboardPage: React.FC = () => {
   const fetchData = useCallback(async (quiet = false) => {
     if (!quiet) setLoading(true);
     setPageError('');
+    setPendingError('');
     setSetupRequired(false);
     try {
       if (restaurant) {
@@ -98,14 +99,21 @@ export const PartnerDashboardPage: React.FC = () => {
         setProducts(categoryList.flatMap((category: RowData) => (category.items || []).map((item: RowData) => ({ ...item, category_name: category.name }))));
         profileForm.setFieldsValue(business);
       } else {
-        const [dashResponse, profileResponse, orderResponse, pendingResponse] = await Promise.all([
+        const [dashResponse, profileResponse, orderResponse] = await Promise.all([
           apiClient.get('/store/dashboard'),
           apiClient.get('/store/profile'),
           apiClient.get('/orders/my-orders', { params: { page_size: 50 } }),
-          apiClient.get('/orders/pending'),
         ]);
         const orderList = normalList(orderResponse.data, ['items', 'orders']);
-        const pendingList = normalList(pendingResponse.data);
+        let pendingList: RowData[] = [];
+        try {
+          const pendingResponse = await apiClient.get('/orders/pending');
+          pendingList = normalList(pendingResponse.data);
+        } catch (pendingLoadError: any) {
+          // A missing store PIN code prevents the backend from routing local orders.
+          // Keep real dashboard/profile data visible and display the backend reason separately.
+          setPendingError(apiMessage(pendingLoadError, 'Could not load new local orders. Check your store profile and PIN code.'));
+        }
         const byId = new Map<string, RowData>();
         [...orderList, ...pendingList].forEach(order => byId.set(String(order.id), order));
         const mergedOrders = Array.from(byId.values()).sort((a,b) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime());
@@ -121,11 +129,13 @@ export const PartnerDashboardPage: React.FC = () => {
             apiClient.get('/grocery/store/products'),
           ]);
           const catalogue = productResponse.data || {};
-          setCategories(normalList(categoryResponse.data));
+          const categoryList = normalList(categoryResponse.data);
+          const categoryNameById = new Map(categoryList.map((category: RowData) => [String(category.id), category.name]));
+          setCategories(categoryList);
           setProducts([
             ...normalList(catalogue, ['universal']),
             ...normalList(catalogue, ['custom']),
-          ].map((item: RowData) => ({ ...item, category_name: item.category_name || categories.find(c => c.id === item.category_id)?.name })));
+          ].map((item: RowData) => ({ ...item, category_name: item.category_name || categoryNameById.get(String(item.category_id)) })));
         }
       }
     } catch (error: any) {
@@ -137,6 +147,12 @@ export const PartnerDashboardPage: React.FC = () => {
   }, [restaurant, section]);
 
   useEffect(() => { void fetchData(); }, [fetchData]);
+
+  useEffect(() => {
+    if (section !== 'dashboard') return;
+    const refreshInterval = window.setInterval(() => { void fetchData(true); }, 30000);
+    return () => window.clearInterval(refreshInterval);
+  }, [fetchData, section]);
 
   const runAction = async (action: () => Promise<any>, successText: string) => {
     setSaving(true);
@@ -402,6 +418,7 @@ export const PartnerDashboardPage: React.FC = () => {
         </div>
         {restaurant && <><Divider/><div className="availability-row"><div><Text strong>Accepting orders</Text><Paragraph type="secondary" style={{margin:0}}>Pause incoming orders without closing your restaurant.</Paragraph></div><Switch checked={!!stats?.is_accepting_orders} loading={saving} onChange={toggleAccepting}/></div></>}
       </Card>}
+      {pendingError && <Alert type="warning" showIcon message="New local orders could not be loaded" description={pendingError} style={{marginBottom:16}}/>}
       <Card className="portal-card" title="New orders · Needs your response" extra={<Button type="link" onClick={() => window.location.assign(base+'/orders')}>View all orders</Button>}>
         <Table rowKey="id" loading={loading || refreshing} columns={orderColumns} dataSource={pendingOrders} pagination={false} scroll={{x:850}} locale={{emptyText:<Empty description={pageError ? 'Orders could not be loaded' : 'No new orders'} />}}/>
       </Card>
