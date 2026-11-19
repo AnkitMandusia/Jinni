@@ -3,7 +3,8 @@
 **/.env
 **/.env.*
 !**/.env.example
-
+__pycache__/
+*.pyc
 # Private credentials
 superapp-backend/firebase-credentials.json
 superapp-backend/google-services.json

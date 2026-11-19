@@ -1,0 +1,1515 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+  @page {
+    size: A4;
+    margin: 2cm 1.8cm;
+  }
+  body {
+    font-family: Helvetica, Arial, sans-serif;
+    font-size: 9.5pt;
+    line-height: 1.45;
+    color: #1a1a1a;
+  }
+  h1 {
+    font-size: 20pt;
+    color: #1a1a2e;
+    border-bottom: 2px solid #4a4a8a;
+    padding-bottom: 6px;
+    margin-top: 0;
+  }
+  h2 {
+    font-size: 14pt;
+    color: #2a2a5e;
+    margin-top: 18px;
+    border-bottom: 1px solid #ccc;
+    padding-bottom: 3px;
+  }
+  h3 {
+    font-size: 11.5pt;
+    color: #333;
+    margin-top: 12px;
+  }
+  table {
+    border-collapse: collapse;
+    width: 100%;
+    margin: 10px 0;
+    font-size: 8pt;
+  }
+  th, td {
+    border: 1px solid #bbb;
+    padding: 4px 6px;
+    text-align: left;
+    vertical-align: top;
+  }
+  th {
+    background-color: #e8e8f4;
+    font-weight: bold;
+  }
+  code {
+    background-color: #f2f2f2;
+    padding: 1px 3px;
+    font-size: 8.5pt;
+  }
+  ul, ol {
+    margin: 4px 0;
+    padding-left: 18px;
+  }
+  li {
+    margin-bottom: 2px;
+  }
+  hr {
+    border: none;
+    border-top: 1px solid #ccc;
+    margin: 12px 0;
+  }
+  strong {
+    color: #1a1a2e;
+  }
+</style>
+</head>
+<body>
+<h1 id="jinni-research-report">Jinni Research Report</h1>
+<h2 id="zepto-zomato-jinni-competitive-analysis-and-launch-readiness-review">Zepto, Zomato &amp; Jinni — Competitive Analysis and Launch-Readiness Review</h2>
+<p>Generated 2026-10-25</p>
+<hr />
+<div style="page-break-before: always;"></div>
+
+<h1 id="jinni-research-executive-summary">Jinni Research — Executive Summary</h1>
+<p>Scope: Zepto static analysis (Zomato deferred per your instruction) + Jinni repository
+audit, to inform Jinni's grocery-commerce architecture. All findings are read-only;
+nothing in Jinni was modified.</p>
+<h2 id="what-was-actually-done">What was actually done</h2>
+<ol>
+<li>Zepto APK manifest + native-layer analysis (permissions, payment SDKs, auth SDKs,
+   analytics/observability stack)</li>
+<li>Zepto JS bundle identified as Hermes bytecode (v96); no disassembler available this
+   session, so string-table-level evidence only (screen names, API hosts, feature flags,
+   analytics events) — NOT verified code structure</li>
+<li>Zepto screen inventory (~58 identifiers) and workflow mapping, both identifier-level</li>
+<li>Jinni repo structural audit: module layout, then code-level verification of the
+   grocery cart/checkout flow specifically, then architecture (state, API, navigation)</li>
+<li>A first-pass gap analysis, corrected after code verification (two items originally
+   flagged as "absent" turned out to be implemented)</li>
+</ol>
+<h2 id="confidence-levels-read-this-before-acting-on-anything-below">Confidence levels — read this before acting on anything below</h2>
+<ul>
+<li><strong>Zepto findings: INFERRED</strong>, not OBSERVED-and-verified. They're real strings pulled
+  from compiled bytecode, but without a disassembler there's no confirmation of which
+  screens actually call which APIs, what the real navigation graph looks like, or
+  whether a feature is live vs. deprecated-but-still-referenced in the bundle.</li>
+<li><strong>Jinni findings: OBSERVED and code-verified</strong> for grocery cart/checkout, cartStore,
+  api.ts, useStore.ts, moduleRegistry.ts, and RootNavigator.tsx specifically. Other
+  modules (food, cab, salon, orders detail, admin) were only verified at file-listing
+  depth, not code-content depth — treat findings about them as directional only.</li>
+</ul>
+<h2 id="top-findings-that-should-actually-change-decisions">Top findings that should actually change decisions</h2>
+<ol>
+<li>
+<p><strong>Jinni's checkout is more complete than a surface scan suggested.</strong> Coupons and a
+   payment-method picker (COD/UPI with server-side verification) both already work.
+   Don't rebuild these — the real gaps are narrower: serviceability pre-checking and
+   structured OOS/substitution handling (currently a free-text note to the store).</p>
+</li>
+<li>
+<p><strong>Jinni's order model is architecturally different from Zepto's, on purpose.</strong>
+   Zepto pre-resolves a single dark store by location before checkout. Jinni broadcasts
+   orders to nearby stores to accept (race-to-accept). This isn't a gap to close — it's
+   a different design that changes what "is this address serviceable" even means here.
+   Any serviceability-check feature needs to be designed for Jinni's model, not copied
+   from Zepto's.</p>
+</li>
+<li>
+<p><strong>Jinni is one codebase serving five roles</strong> (customer/admin/store/partner-shared),
+   routed at the root navigator by user role and status. Zepto is consumer-only; its
+   store/delivery-partner experiences are separate products. This is a real tradeoff
+   (unified maintenance vs. bundle size and permission surface) worth being deliberate
+   about as the app grows, not something to reassess by accident later.</p>
+</li>
+<li>
+<p><strong>Cab and salon are live, not scaffolding.</strong> <code>enabled: true</code> in the module registry,
+   right now. If your near-term focus is genuinely grocery+food, worth an explicit
+   decision about whether cab/salon get resourced too or stay parked — the code doesn't
+   currently signal which.</p>
+</li>
+<li>
+<p><strong>Zepto carries features outside grocery scope</strong> (pharmacy with prescription
+   upload/consent, electronics trade-in, festival campaign UI) — explicitly NOT
+   recommended to replicate per your own instruction to design original architecture,
+   not copy Zepto feature-for-feature.</p>
+</li>
+</ol>
+<h2 id="remaining-work-not-yet-done">Remaining work (not yet done)</h2>
+<ul>
+<li>Zomato analysis — deferred per your instruction, pick up later</li>
+<li>Deeper Jinni code verification for food/cab/salon modules (currently file-listing
+  depth only)</li>
+<li>Phase 6 (Zepto-vs-Zomato comparison matrix) — blocked until Zomato is in scope</li>
+<li>Phase 8 remaining deliverables: jinni-proposed-architecture.md,
+  jinni-data-models-and-api-proposals.md, implementation-roadmap.md,
+  evidence-and-unknowns.md (a consolidated list of every UNKNOWN acronym/term —
+  ZIC, NZS, POIA, OBD, PTP — flagged across the Zepto docs)</li>
+</ul>
+<h2 id="files-produced-this-session-eworksuperresearchreverse-engineering">Files produced this session (E:\work\super\research\reverse-engineering)</h2>
+<ul>
+<li>zepto-js-bundle-findings.md (Phase 2)</li>
+<li>zepto-screen-inventory.md (Phase 3)</li>
+<li>zepto-workflow-mapping.md (Phase 4)</li>
+<li>jinni-feature-gap-analysis.md (Phase 7, corrected after code verification)</li>
+<li>jinni-technical-architecture.md (Phase 5)</li>
+<li>executive-summary.md (this file)</li>
+</ul>
+<p>Also on your local machine (not in the repo): zepto_bundle_strings*.json,
+zepto_screen_events.json under C:\Users\Ankit\Downloads\jinni_plan\ — raw extraction
+data behind the Zepto findings, kept outside the repo since it's Zepto's bytecode-derived
+data, not Jinni's own content.</p>
+<div style="page-break-before: always;"></div>
+
+<h1 id="zepto-static-analysis-phase-1-manifest-native-layer">Zepto — Static Analysis (Phase 1: Manifest &amp; Native Layer)</h1>
+<p>Source: com.zeptoconsumerapp.apk, version 26.9.3 (versionCode 760), min SDK 32 (Android
+12), target SDK 35 (Android 15). Class count: 29,878. Resource count: 1,438.</p>
+<h2 id="architecture-observed">Architecture (OBSERVED)</h2>
+<p>React Native app. Native layer is ~390 first-party classes under <code>com.zeptoconsumerapp.*</code>
+— almost entirely infrastructure/bridge modules (device APIs exposed to JS), not the
+actual commerce UI, which lives in the Hermes JS bundle (see zepto-js-bundle-findings.md).
+Single <code>MainActivity</code> (launchMode=singleTask) is the sole real entry point.</p>
+<h2 id="permissions-observed-notable">Permissions (OBSERVED, notable)</h2>
+<ul>
+<li>Location: ACCESS_FINE_LOCATION, ACCESS_COARSE_LOCATION</li>
+<li>Messaging/telephony: READ_SMS, RECEIVE_SMS, SEND_SMS, READ_PHONE_STATE,
+  READ_BASIC_PHONE_STATE — OTP autofill</li>
+<li>Media: CAMERA, RECORD_AUDIO</li>
+<li>Contacts/profile: READ_CONTACTS, READ_PROFILE, GET_ACCOUNTS</li>
+<li>Push/analytics: POST_NOTIFICATIONS, FCM receive permission, AD_ID,
+  ACCESS_ADSERVICES_* (Android 13+ Privacy Sandbox), DETECT_SCREEN_CAPTURE</li>
+<li>Storage/network: READ/WRITE_EXTERNAL_STORAGE, ACCESS_NETWORK_STATE,
+  ACCESS_WIFI_STATE, CHANGE_NETWORK_STATE, DOWNLOAD_WITHOUT_NOTIFICATION</li>
+<li>Other: Truecaller SDK permission, Play Install Referrer binding, Samsung Maps Agent,
+  Huawei AppMarket common-data permission, NFC, CHECK_LICENSE, FOREGROUND_SERVICE</li>
+</ul>
+<h2 id="package-visibility-queries-observed-queries-block">Package-visibility queries (OBSERVED, <code>&lt;queries&gt;</code> block)</h2>
+<ul>
+<li>Payment deep-link schemes: upi://pay, upi://mandate, nb://pay, juspay://pay,
+  credpay://checkout, Chrome Payment Request API actions (org.chromium.intent.action.PAY)</li>
+<li>Target packages: com.tatadigital.tcp (Tata Neu), com.google.android.apps.maps</li>
+<li>Auth: com.truecaller(+.debug), com.otpless.app</li>
+<li>Share targets: WhatsApp (+Business), Telegram, LINE, MiChat, Discord, Slack, Viber,
+  Signal, BOTIM, Facebook, Instagram</li>
+<li>com.appsflyer.referrer.INSTALL_PROVIDER — AppsFlyer attribution confirmed</li>
+<li>in.amazon.mShop.android.shopping + Amazon auth actions — unresolved whether active
+  integration or shared-dependency leftover</li>
+</ul>
+<h2 id="deep-link-app-links-observed-autoverifytrue">Deep link / App Links (OBSERVED, autoVerify=true)</h2>
+<ul>
+<li>https://{DeepLinkHost} (string resource, unresolved), https://store.zepto.co.in,
+  https://s.zepto.co.in, https://www.zeptonow.com, https://www.zepto.com</li>
+<li>Custom scheme: zepto://zeptonow.com/app, zepto://zepto.com/app</li>
+<li>Two disabled activity-aliases (APP_ICON_CAMPAIGN_1/2) — seasonal icon-swap mechanism,
+  same deep links, currently disabled</li>
+</ul>
+<h2 id="payments-stack-observed">Payments stack (OBSERVED)</h2>
+<ul>
+<li>Juspay HyperSDK fully integrated: ProcessActivity, CustomtabActivity (scheme
+  juspay://com.zeptoconsumerapp), RedirectResponseActivity (juspayexternalapp://),
+  hypernfc.NfcActivity (NFC card payments), hypersmshandler.SmsRetrieverReceiver (OTP
+  auto-read via Google's SMS Retriever API, not raw SMS permission)</li>
+<li>NPCI UPI PIN library: org.npci.upi.security.pinactivitycomponent</li>
+<li>Amazon Pay secondary integration: APayBrowserActivity, two RedirectUriReceiverActivity
+  variants (scheme amzn://amazonpay.amazon.in/com.zeptoconsumerapp), AuthActivity,
+  WorkflowActivity — appears India-focused in this evidence</li>
+<li>Google Sign-In present (SignInHubActivity, GoogleApiActivity)</li>
+</ul>
+<h2 id="auth-observed">Auth (OBSERVED)</h2>
+<ul>
+<li>Truecaller SDK with live partner key in meta-data — one-tap verification</li>
+<li>OTPLESS SDK (OtplessAutoReadZeroTapReceiver) — alternate passwordless auth</li>
+<li>WhatsAppOtpBroadcastReceiver (first-party) listens for com.whatsapp.otp.OTP_RETRIEVED</li>
+<li>Custom SharedAuthenticatorService via Android AccountAuthenticator framework — session
+  persisted as an Android account, not just app-local storage</li>
+</ul>
+<h2 id="observabilityanalytics-observed">Observability/analytics (OBSERVED)</h2>
+<ul>
+<li>Firebase: Messaging (FCM), Crashlytics (collection DISABLED), Analytics (collection
+  enabled, ad-personalization defaults true), Sessions</li>
+<li>Sentry present but auto-init=false, anr.enable=false — likely manually initialized in JS</li>
+<li>AppsFlyer (install-referrer query entry)</li>
+<li>Google AdMob fully wired (ad unit ID present) — unexpected for a grocery app, purpose
+  unconfirmed (INFERRED: possibly in-app ad placements or a separate ad-funded feature)</li>
+<li>Chucker (HTTP inspector library) present and fully declared in this build — normally a
+  debug-only library; flag as UNKNOWN whether this is a release or staging APK build</li>
+</ul>
+<h2 id="background-work-lifecycle-observed">Background work / lifecycle (OBSERVED)</h2>
+<ul>
+<li>services.OrderCleanupService, services.GenericCleanupService,
+  AppServiceStarter.api.OrderCleanupApiService, AppServiceStarter.api.POIACleanupApiService
+  ("POIA" acronym unresolved — recurs elsewhere, likely a real internal system)</li>
+<li>Standard AndroidX WorkManager components for scheduled background jobs</li>
+</ul>
+<h2 id="location-storage-observed">Location &amp; storage (OBSERVED)</h2>
+<ul>
+<li>ACCESS_FINE_LOCATION + ACCESS_COARSE_LOCATION, live Google Maps API key in meta-data</li>
+<li>requestLegacyExternalStorage=true, largeHeap=true (suggests heavy image/list rendering)</li>
+</ul>
+<h2 id="native-layer-first-party-module-map-observed-390-classes-under-comzeptoconsumerapp">Native-layer first-party module map (OBSERVED, ~390 classes under com.zeptoconsumerapp.*)</h2>
+<p>Almost entirely infra/bridge modules exposed to the JS layer, not business logic:
+- Payments bridge: PaymentUPIHelper.* (NativePaymentUPIHelperModule)
+- Auth/OTP: otpVerify.* (SmsOtpListener, WhatsappOtpListener), AutoLogin.*
+  (SharedAccountAuthenticator, CredentialManagerModule, AutoBackupManager)
+- Security/anti-fraud: attestation.* (PlayIntegrityHelper, KeystoreManager),
+  rsa.RSAOAEPModule, WafIntegration.WafModule, securestorage.* (EncryptedMMKV,
+  DEKManager, EncryptedDataStore)
+- Session replay/gesture capture: ArkonGesture.* (ArkonGestureRecorder,
+  ArkonGestureReplayer, ArkonTouchSurface) — INFERRED purpose: bug-repro or
+  fraud/UX analytics tooling
+- Location: FusedLocation.* — full wrapper exposed to RN
+- Startup/perf: Startup.* (AppInitializer, AppPhoenixManager,
+  StartupLaunchClassifier, LaunchTimingTracker), performancemode.* (adaptive
+  perf mode by device/network/battery)
+- Remote config: modules.configservice.* — "Phoenix" is Zepto's internal
+  feature-flag/remote-config + hot-update system name
+- API prefetching: apiprefetch.* (HomepageApiPrefetch, HaversineDistance) —
+  confirms home-page content is prefetched using resolved-location distance
+  before the home screen even renders
+- Notifications: modules.notification.* — supports countdown-timer push (ETA/flash-sale
+  urgency) and silent/data-only push for background sync
+- Camera: zcamera.* — custom, not stock RN camera, purpose unconfirmed
+- Gamification: gamification.scratchcard.<em>, SlotMachineTurbo.</em>
+- Dynamic splash/icon: DynamicSplashScreen.<em>, DynamicAppIcon.</em>, AppShortcuts.*
+- Networking infra: NetworkLogger.* (ApiSpooferController, ApiUrlRewriteInterceptor —
+  suggests an internal QA/staging request-mocking capability), ZeptoDns
+- Image pipeline: ZeptoImage.* (custom Fresco-based, ThumbHash placeholder decoding)
+- Ads: GoogleAdsManager.* (banner + native ad formats actively wired into custom views)</p>
+<div style="page-break-before: always;"></div>
+
+<h1 id="zepto-js-bundle-phase-2-findings-hermes-bytecode-static-string-extraction">Zepto JS Bundle — Phase 2 Findings (Hermes bytecode, static string extraction)</h1>
+<p>Source: assets/index.android.bundle, extracted from com.zeptoconsumerapp.apk (v26.9.3, build 760)
+Method: raw printable-byte-run extraction (6-200 chars) from Hermes HBC file. NOT a disassembly —
+no control flow, no function boundaries, no call graph recovered. Strings are concatenated without
+reliable delimiters in this extraction method, so some entries below are two+ adjacent literals
+run together (noted where relevant).</p>
+<h2 id="format-identification-observed">Format identification (OBSERVED)</h2>
+<ul>
+<li>Magic: 0x1F1903C103BC1FC6 (exact match to Hermes HBC magic constant)</li>
+<li>Bytecode version: 96</li>
+<li>File size: 15,836,084 bytes (~15.8 MB)</li>
+<li>Tooling gap: no Hermes disassembler (hbcdump/hermes-dec) available in this REA session.
+  Only raw string-table-adjacent text was recovered, not instructions/control flow.</li>
+</ul>
+<h2 id="confirmed-microservices-api-gateway-observed-via-literal-url-strings">Confirmed microservices / API gateway (OBSERVED, via literal URL strings)</h2>
+<ul>
+<li>https://api-gateway.zepto.co.in/zepto-coins/api/... (loyalty "ZCoins" service)</li>
+<li>https://api-gateway.zepto.co.in/zerox-service/api/...</li>
+<li>https://api-gateway.zepto.co.in/recipe-service/api/...</li>
+<li>https://api-gateway.zepto.co.in/partner-integration-service/api/v2/pass/purchase...</li>
+<li>https://api-gateway.zepto.co.in/api/v1/pass/loyalty-trial-activate</li>
+<li>https://api-gateway.zepto.co.in/.../listing-api/reorder/...</li>
+<li>https://devspace.zeptonow.com/api (baseURL — likely internal/staging config string)</li>
+<li>v1/order/cart/recommended-upsell-banners</li>
+<li>/order/{orderId}/cancel-order-button (route/analytics id, not necessarily literal API path)</li>
+<li>zeptonow://... custom scheme routes: categorylist, commonproducts_, LayoutEngine?pageId=...</li>
+<li>www.zeptonow.com/Categories?categoryId=...&amp;subCategoryId=... (web/deep-link category URLs)</li>
+<li>www.zeptonow.com/LayoutEngine?pageId=PAGE_IN_PAGE&amp;layoutId=... (server-driven UI / widget layout system)</li>
+<li>www.zeptonow.com/CustomerSupport, /Orders, /pn/, /ActiveConversationsRepositoryInstanceProvider</li>
+<li>www.zeptonow.com/app-privacy-policy</li>
+</ul>
+<h2 id="first-party-feature-areas-observed-via-identifier-strings">First-party feature areas (OBSERVED via identifier strings)</h2>
+<ul>
+<li><strong>Zepto Cash</strong> — wallet system: "Add Money to Zepto Cash", "ZeptoCashSuccessDescription",
+  "PAY_VIA_ZEPTO_WALLET", "useZeptoCashPaymentStatus", cash-expiry warnings</li>
+<li><strong>Zepto Coins (ZCoins)</strong> — loyalty/rewards currency, separate from Zepto Cash: ZCoinsHistory,
+  ZCoinsReferralContactFilter, ZCoinsMaxLimitModalInCart, ZCoinsEmptyState/ErrorState,
+  COINS_SUMMARY, coins_earned_in_this_cart</li>
+<li><strong>Zepto Cafe</strong> — a separate vertical/sub-app inside the same bundle ("Zepto CafeMenuFAB",
+  cafe-related chat bot strings) — UNKNOWN scope, flagging for a Jinni scope discussion since
+  Zepto itself has grown a 3rd vertical beyond pure grocery</li>
+<li><strong>BNPL / Paylater</strong> — "ZeptoPaylaterRepaymentWidget", EMI references, COD_HANDLING_FEE</li>
+<li><strong>Gift cards &amp; vouchers</strong> — giftCardTncList, DIGITAL_VOUCHERS_HISTORY, redeem voucher code</li>
+<li><strong>Loyalty Pass / membership</strong> — "Add Loyalty Pass to Cart", loyalty_pass_add_to_cart_ptp_migration</li>
+<li><strong>Cart system</strong> — CartBuilderPip (bottomsheet, likely min-order-value nudge), cart gifting slice,
+  cart campaign slice, bulk update cart, swap-and-save substitution for OOS items, "Some items in
+  your cart are [unavailable]", tobacco_sale_blocked (age-restricted item handling)</li>
+<li><strong>Rider/delivery tracking</strong> — lastRiderLocationPress, rider_to_customer_eta, DeliveryBrandFunded,
+  DeliveryPromiseNotInformed</li>
+<li><strong>AI chat bot</strong> — i_chat_bot_add_to_cart_clicked, ChatBotResetConfirmation — in-app assistant
+  that can add items to cart directly</li>
+<li><strong>Scheduled / future delivery</strong> — "select Future Timestamp", pickupTimeSelector</li>
+<li><strong>Address management</strong> — AddAddressButton, ChangeAddress, AddressAutoFill, isCartAddressTooltipShown</li>
+<li><strong>Referral program</strong> — referralActionHandler, isUserEligibleForFeatured, ReferralContactFilter</li>
+<li><strong>Price comparison / "PCA" widgets</strong> — PCA_BANNER_VIEWED_V2, PCA_CARD_FULL_SCREEN_V2,
+  "Non-Member Price with Zepto Now" — INFERRED: a competitor/market price-comparison nudge</li>
+<li><strong>Security</strong> — AWS_WAF_DOMAIN string present, isWafTokenA[vailable] — confirms the WafModule
+  seen in the native layer talks to an AWS WAF-fronted endpoint</li>
+</ul>
+<h2 id="payments-observed-consistent-with-native-layer-findings">Payments (OBSERVED, consistent with native-layer findings)</h2>
+<ul>
+<li>Deep Juspay integration confirmed in strings: JUSPAY_ZEPTOUPI_ON_CLICK, JUSPAY_ZEPTOUPI_PAY_ENDED,
+  JUSPAY_ZEPTOUPI_WALLET_SELECTED, juspay_bank_selected</li>
+<li>UPI outage handling: ZEPTOUPI_OUTAGE_INFO</li>
+<li>Firebase Analytics payment events confirmed: firebase.analytics().logAddToCart,
+  firebase.analytics().logBeginCheckout</li>
+<li>CARD_BIN_VERIFICATION, SAVE_SECURE_MODAL (saved card tokenization flow)</li>
+<li>CHECK_BALANCE_CLICKED/FAILED (wallet/gift card balance check)</li>
+</ul>
+<h2 id="analyticsevent-naming-convention-observed">Analytics/event naming convention (OBSERVED)</h2>
+<p>Two event-naming styles coexist in this bundle:
+- snake_case lifecycle events: screen_viewed_cancelled_order_pop_up, payment_cancelled_by_user,
+  i_chat_bot_add_to_cart_clicked, coins_earned_in_this_cart_added_product
+- SCREAMING_SNAKE_CASE UI/analytics constants: CATEGORY_PAGE_BANNER_CLICKED,
+  CHECKOUT_WITH_ZEPTO_NOW_CLICKED, WALLET_FAQ_CLICKED_V2, TRACK_ORDER_BUTTON_CLICKED</p>
+<h2 id="remaining-blockers-per-scope">Remaining blockers (per scope)</h2>
+<ul>
+<li>Hermes bytecode cannot be disassembled with tools available in this session — no function
+  boundaries, no control flow, no reliable per-string delimiters recovered.</li>
+<li>Cannot produce a clean screen-by-screen inventory or navigation graph from this bundle with
+  current tooling. Everything above is identifier/string-level evidence only, not structural.</li>
+<li>Zepto Cafe appears to be a 3rd vertical bundled into the same app — scope question for Jinni,
+  not investigated further here (out of stated grocery+food-delivery scope for this research pass).</li>
+</ul>
+<div style="page-break-before: always;"></div>
+
+<h1 id="zepto-phase-3-screen-inventory-identifier-level-not-code-level">Zepto — Phase 3: Screen Inventory (identifier-level, NOT code-level)</h1>
+<h2 id="method-confidence-caveat-observed-methodology-read-first">Method &amp; confidence caveat (OBSERVED methodology, read first)</h2>
+<p>Extracted via regex <code>SCREEN_VIEWE?D_[A-Z0-9_]+</code> directly against the Hermes bytecode's raw text.
+Hermes packs string-table entries back-to-back with NO delimiter in this raw-byte view, so many
+matches "bleed" into the next adjacent constant (e.g. <code>SCREEN_VIEWED_CART_PAGE_KEY</code> + the next
+string <code>SCREEN_VIEWED_HOME_PAGE...</code> show up concatenated). The list below is manually cleaned to
+the real left-hand token where the boundary is unambiguous (usually at <code>_PAGE</code>, <code>_BS</code>, <code>_MODAL</code>,
+or a clear second <code>SCREEN_VIEWED_</code> prefix). Treat each entry as INFERRED to be a real analytics
+screen-view event name; none of this is confirmed against actual navigation/route code, since no
+Hermes disassembler was available to recover the call sites that fire these events (see Phase 2
+findings doc for the tooling gap). This is the best available substitute for a route-level
+screen inventory without that tooling.</p>
+<p>Total raw SCREEN_VIEWED_* matches: 90. Cleaned to ~58 distinct screen identifiers below,
+grouped by feature area (grouping is INFERRED from the name, not from code structure).</p>
+<h2 id="home-discovery">Home / discovery</h2>
+<ul>
+<li>SCREEN_VIEWED_WELCOME_HOME_ETA_REFRESH_CARD_INFO — home page, ETA refresh card</li>
+<li>SCREEN_VIEWED_LAYOUT_ENGINE_PAGE — server-driven home/category layout renderer</li>
+<li>SCREEN_VIEWED_TRENDING</li>
+<li>SCREEN_VIEWED_CATEGORY (bled suffix) — category listing</li>
+<li>SCREEN_VIEWED_SUBCATEGORY (bar/nudge)</li>
+<li>SCREEN_VIEWED_BRAND_SEARCH_PAGE</li>
+<li>SCREEN_VIEWED_TAB_PAGE / SCREEN_VIEWED_PILL_TAB_PAGE</li>
+<li>SCREEN_VIEWED_UGC_CONTENT_PAGE — user-generated content feed</li>
+</ul>
+<h2 id="product-pdp">Product / PDP</h2>
+<ul>
+<li>SCREEN_VIEWED_PRODUCT_DETAILS_PAGE</li>
+<li>SCREEN_VIEWED_PRODUCT_RATING_PAGE</li>
+<li>SCREEN_VIEWED_SIMILAR_PRODUCTS (bottom sheet)</li>
+<li>SCREEN_VIEWED_SHOPPING_LIST_PAGE / SHOPPING_LIST_ITEM_PAGE</li>
+</ul>
+<h2 id="cart-checkout">Cart / checkout</h2>
+<ul>
+<li>SCREEN_VIEWED_CART_PAGE</li>
+<li>SCREEN_VIEWED_COUPON_BS (bottom sheet)</li>
+<li>SCREEN_VIEWED_PARTIAL_OOS_BOTTOM_SHEET — partial out-of-stock handling screen</li>
+<li>SCREEN_VIEWED_UNSERVICEABLE_STORE — serviceability failure screen</li>
+</ul>
+<h2 id="payments">Payments</h2>
+<ul>
+<li>SCREEN_VIEWED_PAYMENT_PAGE</li>
+<li>SCREEN_VIEWED_PAYMENT_PROCESSING_INSTRUCTION</li>
+<li>SCREEN_VIEWED_PAYMENT_FAILURE</li>
+<li>SCREEN_VIEWED_PAYMENT_DOUBLE_CONFIRMATION_CANCEL_AUTOPAY</li>
+<li>SCREEN_VIEWED_PAY_WITH_EMI_BS</li>
+<li>SCREEN_VIEWED_ADD_NEW_CARD</li>
+<li>SCREEN_VIEWED_UPI_COLLECT_APPROVAL</li>
+<li>SCREEN_VIEWED_NO_COST_EMI_INFO</li>
+</ul>
+<h2 id="address">Address</h2>
+<ul>
+<li>SCREEN_VIEWED_ADD_ADDRESS_V2</li>
+<li>SCREEN_VIEWED_ADDRESS_ALREADY_SAVED (bled; address edit/selection flow)</li>
+<li>SCREEN_VIEWED_ACCOUNT_SETTINGS_ADDRESSES_NEW_LOCATION_PIN</li>
+</ul>
+<h2 id="orders">Orders</h2>
+<ul>
+<li>SCREEN_VIEWED_ORDER_TRACKING_PAGE</li>
+<li>SCREEN_VIEWED_ORDERS_LIST</li>
+<li>SCREEN_VIEWED_CONFIRMING_ORDER_CONFIRMED_PAGE</li>
+<li>SCREEN_VIEWED_ORDER_CANCELLATION_BS</li>
+<li>SCREEN_VIEWED_CANCELLED_ORDER_POPUP</li>
+<li>SCREEN_VIEWED_ORDER_RATING_PAGE_V2 / ORDER_RATING_MODAL</li>
+</ul>
+<h2 id="auth-account">Auth / account</h2>
+<ul>
+<li>SCREEN_VIEWED_SIGNUP_PAGE</li>
+<li>SCREEN_VIEWED_LOGIN_EVENT (sampling)</li>
+<li>SCREEN_VIEWED_VERIFY_OTP</li>
+<li>SCREEN_VIEWED_OTP_SAMPLE_BOTTOM_SHEET</li>
+<li>SCREEN_VIEWED_ACCOUNT_SUSPENDED</li>
+<li>SCREEN_VIEWED_ZEPTO_POLICY</li>
+</ul>
+<h2 id="loyalty-wallet-rewards">Loyalty / wallet / rewards</h2>
+<ul>
+<li>SCREEN_VIEWED_ZCOINS_PAGE / ZCOINS_LEDGER_PAGE</li>
+<li>SCREEN_VIEWED_ZEPTO_CASH_ACTIVITY</li>
+<li>SCREEN_VIEWED_LOYALTY_PASS_PAGE</li>
+<li>SCREEN_VIEWED_REFERRALS_PAGE / REFERRAL_SIGNUP_PAGE / REFERRAL_EVENTS_PAGE / REFERRAL_CONTACT_LIST_PAGE</li>
+<li>SCREEN_VIEWED_GIFT_CARD_REDEMPTION_DETAILS_ENTRY_PAGE</li>
+<li>SCREEN_VIEWED_REDEEM_VOUCHER_FAILED / VOUCHER_DETAILS_PAGE</li>
+<li>SCREEN_VIEWED_SUPER_SAVER_HOME / ULTRA_SAVER_HOME_ENTRY_PAGE — subscription-tier landing pages</li>
+</ul>
+<h2 id="exchange-trade-in-a-feature-not-in-your-original-zepto-scope-assumptions-flag-for-review">Exchange / trade-in (a feature NOT in your original Zepto scope assumptions — flag for review)</h2>
+<ul>
+<li>SCREEN_VIEWED_EXCHANGE_PAGE, EXCHANGE_SUMMARY_PAGE, EXCHANGE_IMEI_PAGE,
+  EXCHANGE_DEVICE_CONDITION_PAGE, EXCHANGE_VARIENT_DETAILS_PAGE
+  INFERRED: an electronics/device trade-in flow (IMEI capture implies phones/electronics),
+  likely tied to a specific Zepto category expansion, not core grocery. Flag as out-of-scope
+  for Jinni unless you want it.</li>
+</ul>
+<h2 id="support-misc">Support / misc</h2>
+<ul>
+<li>SCREEN_VIEWED_CUSTOMER_SUPPORT_FAQ / FAQ_LIST_PAGE / FAQ_DETAILS_CHANNEL</li>
+<li>SCREEN_VIEWED_WEBVIEW_PAGE — generic WebView container (for web-rendered content/promos)</li>
+<li>SCREEN_VIEWED_RAKHI_MSG_SENDER_PAGE — festival-specific feature (Raksha Bandhan gifting)</li>
+<li>SCREEN_VIEWED_IPL_25_SKIP_BOWLING_BOTTOM_SHEET — IPL cricket season gamification tie-in</li>
+<li>SCREEN_VIEWED_POIA_PAGE — acronym unresolved (see Phase 1 native-layer notes, same unknown)</li>
+</ul>
+<h2 id="also-extracted-but-not-detailed-here-saved-in-zepto_screen_eventsjson-on-this-machine">Also extracted but not detailed here (saved in zepto_screen_events.json on this machine)</h2>
+<ul>
+<li>66 distinct BOTTOM_SHEET/MODAL-related view/open/click events</li>
+<li>266 distinct *_CLICKED analytics events (first 400 captured, truncated at that cap)</li>
+</ul>
+<div style="page-break-before: always;"></div>
+
+<h1 id="zepto-phase-4-workflow-mapping-identifier-level-same-caveats-as-phase-3">Zepto — Phase 4: Workflow Mapping (identifier-level, same caveats as Phase 3)</h1>
+<p>Built by cross-referencing screen-inventory tokens with BOTTOM_SHEET/MODAL and *_CLICKED event
+names recovered from the same Hermes string-table scan. Same confidence caveat as Phase 3 applies:
+INFERRED screen/flow structure from event-name co-occurrence, not from verified navigation code.</p>
+<h2 id="grocery-checkout-happy-path-inferred-sequence-from-token-names">Grocery checkout — happy path (INFERRED sequence from token names)</h2>
+<p>Home (SCREEN_VIEWED_WELCOME_HOME) -&gt; Category/Search (SCREEN_VIEWED_CATEGORY /
+SCREEN_VIEWED_BRAND_SEARCH_PAGE) -&gt; PDP (SCREEN_VIEWED_PRODUCT_DETAILS_PAGE) -&gt; Add to cart
+(ADD_ADDRESS/ATC events) -&gt; Cart (SCREEN_VIEWED_CART_PAGE) -&gt; Coupon bottom sheet
+(SCREEN_VIEWED_COUPON_BS, SHOW_COUPON_DETAILS_BOTTOMSHEET) -&gt; Address select/add
+(SCREEN_VIEWED_ADD_ADDRESS_V2, SET_ADDRESS_CTA_CLICKED_ON_PTP_BS) -&gt; Payment page
+(SCREEN_VIEWED_PAYMENT_PAGE) -&gt; Payment method selection (JUSPAY_UPI_APPS_BOTTOMSHEET_VIEWED,
+SHOW_EMI_SELECTION_BOTTOMSHEET_VIEWED, PAY_COD_ZIC_BUTTON_CLICKED, PAY_ONLINE_ZIC_BUTTON_CLICKED) -&gt;
+Order confirmed (SCREEN_VIEWED_CONFIRMING_ORDER_CONFIRMED_PAGE) -&gt; Order tracking
+(SCREEN_VIEWED_ORDER_TRACKING_PAGE).</p>
+<p>Note: "ZIC" prefix (PAY_COD_ZIC_BUTTON_CLICKED, ZIC_PLACE_ORDER_BUTTON_CLICKED,
+ZIC_CANCEL_ORDER_BUTTON_CLICKED, ZIC_INSTANT_ORDER_BOTTOM_SHEET) is UNKNOWN acronym — likely
+"Zepto Instant Checkout" given co-occurrence with place/cancel order actions, but unconfirmed.</p>
+<h2 id="failure-alternate-branches-observed-token-names-inferred-grouping">Failure / alternate branches (OBSERVED token names, INFERRED grouping)</h2>
+<ul>
+<li><strong>Out of stock</strong>: SCREEN_VIEWED_PARTIAL_OOS_BOTTOM_SHEET, RECOMMENDED_SWAP_AND_SAVE_BUTTON_CLICKED
+  -&gt; substitution flow exists for partially unavailable carts</li>
+<li><strong>Unserviceable address</strong>: SCREEN_VIEWED_UNSERVICEABLE_STORE, ADDRESS_SERVICE_UNAVAILABLE</li>
+<li><strong>Payment failure</strong>: SHOW_PAYMENT_FAILED_BOTTOMSHEET_CLICKED, PAYMENT_RETRY_DENIED/FAILED,
+  SHOW_PAYMENT_RETRY_MODAL_V2, PAYMENT_RETRY_SELECTED -&gt; explicit retry flow with its own modal</li>
+<li><strong>Order cancellation</strong>: SCREEN_VIEWED_ORDER_CANCELLATION_BS, SCREEN_VIEWED_CANCELLED_ORDER_POPUP,
+  COD_CANCEL_BUTTON_CLICKED, CANCEL_PAYMENT_CONFIRMATION_BOTTOMSHEET</li>
+<li><strong>Refunds</strong>: REFUND_BOTTOMSHEET_VIEWED, REFUND_PROCESSED, REFUND_STATUS_WIDGET,
+  FACING_ISSUES_WITH_YOUR_REFUND_BOTTOMSHEET</li>
+</ul>
+<h2 id="other-confirmed-sub-flows-observed-tokens">Other confirmed sub-flows (OBSERVED tokens)</h2>
+<ul>
+<li><strong>Pharmacy vertical</strong>: PHARMA_CONSENT_BOTTOMSHEET_VIEWED, PHARMA_CONSENT_ACCEPTED,
+  PRESCRIPTION_UPLOAD_BOTTOM_SHEET_VIEWED, PRESCRIPTION_VERIFICATION_INFO_BS_VIEWED,
+  PRESCRIPTION_UPLOADING_FAILED -&gt; a prescription-upload-and-consent flow exists, implying Zepto
+  sells pharmacy items requiring Rx verification. Not in your original grocery-only scope — flag
+  for a Jinni scope decision same as the Exchange/trade-in flow in Phase 3.</li>
+<li><strong>Truecaller one-tap auth</strong>: TRUECALLER_BOTTOM_SHEET_VIEWED, SHOW_AUTO_LOGIN_MODAL_CTA_CLICKED
+  (consistent with native-layer Truecaller SDK found in Phase 1)</li>
+<li><strong>BNPL / Paylater</strong>: SHOW_BNPL_PTP_BOTTOMSHEET (confirms Phase 2 finding)</li>
+<li><strong>Gamification/campaigns</strong>: SHOW_COLOSSEUM_BOTTOMSHEET_CAMPAIGN_CTA_CLICKED (an internal
+  campaign system named "Colosseum"), IPL_25_SKIP_BOWLING_BOTTOM_SHEET (seasonal cricket tie-in),
+  NZS_OFFER_STORE_BOTTOMSHEET_VIEWED / NZS_PRODUCT_BOTTOMSHEET (NZS acronym UNKNOWN)</li>
+<li><strong>Rate &amp; review</strong>: BEST_OFFER_FIRST_COLOR + ORDER_RATING_BOTTOM_SHEET_VIEWED, RNR_TOAST_VARIANT
+  (RNR = "Rate aNd Review", a common internal abbreviation)</li>
+<li><strong>PIP (Picture-in-Picture) video</strong>: PIP_VIDEO_VIEWED, PIP_FULLSCREEN_CLICK, PIP_MUTE_CLICK,
+  PIP_DISMISSED -&gt; shoppable video content with PiP playback, likely in PDP or home feed</li>
+<li><strong>Address sharing</strong>: HANDLE_QR_SHARE_ADDRESS_CLICKED, URL_GET_FORMATTED_ADDRESS_CHANGE -&gt; QR
+  code-based address sharing (e.g. sharing delivery location with another person)</li>
+</ul>
+<h2 id="remaining-blockers-unchanged-from-phase-23">Remaining blockers (unchanged from Phase 2/3)</h2>
+<ul>
+<li>No Hermes disassembler available; all of the above is event-name/string evidence, not verified
+  control flow or component structure.</li>
+<li>Several acronyms remain UNKNOWN: ZIC, NZS, POIA, OBD, PTP — these recur across cart, payment,
+  and nudge contexts enough to be real internal systems, but their exact meaning can't be
+  determined from strings alone.</li>
+</ul>
+<div style="page-break-before: always;"></div>
+
+<h1 id="zomato-static-analysis-phases-1-3-combined">Zomato — Static Analysis (Phases 1 &amp; 3 combined)</h1>
+<p>Source: zomato.apk, package <code>com.application.zomato</code>, extracted via plain ZIP extraction
+(Python zipfile) + raw regex scan of AndroidManifest.xml (UTF-16LE string pool) and all
+11 classes*.dex files (DEX type-descriptor strings). REA's JADX-based tools hit a hard
+120-second timeout on this APK regardless of operation or heap size (documented, not a
+config issue) — this analysis bypasses JADX entirely using a lighter method.</p>
+<p>Confidence note: this is stronger evidence than the Zepto Hermes findings — these are
+REAL class/package names parsed directly from DEX string pools (OBSERVED), not loose
+string-table fragments. Still not full decompilation (no method bodies, no control flow),
+but the namespace map below is a reliable first-party module inventory.</p>
+<h2 id="architecture-observed-this-is-the-headline-finding">Architecture (OBSERVED — this is the headline finding)</h2>
+<p><strong>Zomato is a fully native Android app (Kotlin), NOT React Native.</strong> Zero Hermes bundle
+or RN bridge artifacts found anywhere in the archive (checked explicitly — no
+<code>index.android.bundle</code>, no <code>.bundle</code> files at all). 11 separate classes*.dex files,
+35,181 first-party classes under <code>com.zomato.*</code>/<code>com.application.zomato.*</code>. This is the
+single biggest architecture contrast with Zepto (React Native) found in this research.
+A <code>com.zomato.kmm</code> namespace (156 classes) suggests Kotlin Multiplatform Mobile is used
+for sharing some business logic with iOS, which is a different cross-platform strategy
+than Zepto's full React Native approach.</p>
+<h2 id="first-party-module-map-observed-by-class-count-top-namespaces">First-party module map (OBSERVED, by class count — top namespaces)</h2>
+<table>
+<thead>
+<tr>
+<th>Namespace</th>
+<th>Classes</th>
+<th>Inferred purpose</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>com.zomato.ui</td>
+<td>11,075</td>
+<td>UI component library (by far the largest — a full internal design system)</td>
+</tr>
+<tr>
+<td>com.application.zomato</td>
+<td>9,790</td>
+<td>Main app module (screens, feature glue code)</td>
+</tr>
+<tr>
+<td>com.zomato.android</td>
+<td>2,328</td>
+<td>Android platform integration layer</td>
+</tr>
+<tr>
+<td>com.zomato.chatsdk</td>
+<td>1,709</td>
+<td>In-app chat (support and/or rider chat) — very large, a serious investment</td>
+</tr>
+<tr>
+<td>com.zomato.crystal</td>
+<td>1,466</td>
+<td>UNKNOWN purpose by name alone — large enough to be a core module</td>
+</tr>
+<tr>
+<td>com.zomato.cardKit</td>
+<td>1,452</td>
+<td>Card-based UI component system (distinct from cartkit — easy to confuse)</td>
+</tr>
+<tr>
+<td>com.zomato.library</td>
+<td>952</td>
+<td>Shared utility library</td>
+</tr>
+<tr>
+<td>com.zomato.dining</td>
+<td>737</td>
+<td>Dine-out / restaurant reservation vertical</td>
+</tr>
+<tr>
+<td>com.zomato.restaurantkit</td>
+<td>657</td>
+<td>Restaurant discovery/listing/menu components</td>
+</tr>
+<tr>
+<td>com.zomato.walletkit</td>
+<td>549</td>
+<td>Zomato Money wallet</td>
+</tr>
+<tr>
+<td>com.zomato.customisation</td>
+<td>480</td>
+<td>Food item customization/add-ons at order time</td>
+</tr>
+<tr>
+<td>com.zomato.gamification</td>
+<td>458</td>
+<td>Contests, streaks, engagement mechanics</td>
+</tr>
+<tr>
+<td>com.zomato.sushi</td>
+<td>442</td>
+<td>Zomato's public design system (confirmed name, "Sushi" is publicly documented)</td>
+</tr>
+<tr>
+<td>com.zomato.reviewsFeed</td>
+<td>422</td>
+<td>Review/rating feed</td>
+</tr>
+<tr>
+<td>com.zomato.order</td>
+<td>396</td>
+<td>Order lifecycle</td>
+</tr>
+<tr>
+<td>com.zomato.commons</td>
+<td>313</td>
+<td>Shared utilities</td>
+</tr>
+<tr>
+<td>com.zomato.cartkit</td>
+<td>259</td>
+<td>Cart system (smaller than cardKit — don't conflate the two)</td>
+</tr>
+<tr>
+<td>com.zomato.karma</td>
+<td>192</td>
+<td>UNKNOWN — likely a loyalty/engagement points system ("Zomato Karma")</td>
+</tr>
+<tr>
+<td>com.zomato.zcommons</td>
+<td>188</td>
+<td>More shared utilities (naming suggests a rewrite/migration in progress)</td>
+</tr>
+<tr>
+<td>com.zomato.kmm</td>
+<td>156</td>
+<td>Kotlin Multiplatform shared business logic (cross-platform with iOS)</td>
+</tr>
+<tr>
+<td>com.zomato.zfekit</td>
+<td>153</td>
+<td>Likely "frontend experience kit" — possibly a server-driven UI layer, similar role to Zepto's LayoutEngine</td>
+</tr>
+<tr>
+<td>com.zomato.zdatakit</td>
+<td>148</td>
+<td>Data layer / API client kit</td>
+</tr>
+<tr>
+<td>com.zomato.loginkit</td>
+<td>115</td>
+<td>Auth</td>
+</tr>
+<tr>
+<td>com.zomato.performance</td>
+<td>113</td>
+<td>Performance monitoring</td>
+</tr>
+<tr>
+<td>com.zomato.notifications</td>
+<td>101</td>
+<td>Push notifications</td>
+</tr>
+</tbody>
+</table>
+<h2 id="smaller-but-notable-modules-observed">Smaller but notable modules (OBSERVED)</h2>
+<table>
+<thead>
+<tr>
+<th>Namespace</th>
+<th>Classes</th>
+<th>Inferred purpose</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>com.zomato.argus / pulsemqtt / mqtt / livetelemetry</td>
+<td>69+69+32+62</td>
+<td>Real-time order/rider tracking infrastructure — MQTT-based live location (not just polling), "argus" (the many-eyed watcher) suggests a monitoring/telemetry layer</td>
+</tr>
+<tr>
+<td>com.zomato.appupdate</td>
+<td>20</td>
+<td>In-app update prompts</td>
+</tr>
+<tr>
+<td>com.zomato.district / districtkit</td>
+<td>15+3</td>
+<td>Zomato District — events/dining-out booking vertical (confirmed newer, smaller class count fits a newer product)</td>
+</tr>
+<tr>
+<td>com.zomato.voiceassistant_core / voiceAssistant</td>
+<td>7+3</td>
+<td>A voice assistant feature exists — small class count suggests either early-stage or a thin wrapper around a larger SDK</td>
+</tr>
+<tr>
+<td>com.zomato.photofilters</td>
+<td>10</td>
+<td>Photo filters, likely for review photo uploads</td>
+</tr>
+<tr>
+<td>com.zomato.zimageloader</td>
+<td>24</td>
+<td>Custom image loading (alongside Coil, seen in manifest — possibly a wrapper)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="manifest-findings-observed-via-utf-16le-string-pool-scan-710-strings-54-permissions-25-package-like-identifiers">Manifest findings (OBSERVED, via UTF-16LE string-pool scan — 710 strings, 54 permissions, 25 package-like identifiers)</h2>
+<h3 id="permissions-selected-notable">Permissions (selected, notable)</h3>
+<ul>
+<li>Standard commerce: <code>INTERNET</code>, <code>ACCESS_FINE_LOCATION</code>, <code>ACCESS_COARSE_LOCATION</code>, <code>CAMERA</code>, <code>RECORD_AUDIO</code>, <code>CALL_PHONE</code>, <code>GET_ACCOUNTS</code>, <code>VIBRATE</code></li>
+<li>Auth: <code>USE_BIOMETRIC</code>, <code>USE_FINGERPRINT</code>, <code>USE_CREDENTIALS</code> — biometric login support</li>
+<li><strong>Health Connect integration</strong>: <code>android.permission.health.WRITE_NUTRITION</code>,
+  <code>androidx.health.ACTION_SHOW_PERMISSIONS_RATIONALE</code> — Zomato writes nutrition data to
+  Android's Health Connect platform. Not something Zepto does (not observed in Zepto's
+  manifest). Worth a product conversation: is calorie/nutrition tracking integration
+  something Jinni's food vertical should consider, or explicitly skip for MVP?
+  (INFERRED relevance, OBSERVED permission)</li>
+<li>Ad attribution: <code>ACCESS_ADSERVICES_AD_ID</code>, <code>ACCESS_ADSERVICES_TOPICS</code>,
+  <code>ACCESS_ADSERVICES_CUSTOM_AUDIENCE</code>, <code>ACCESS_ADSERVICES_ATTRIBUTION</code> (Android 13+
+  Privacy Sandbox, same pattern as Zepto)</li>
+<li>Notifications: <code>POST_NOTIFICATIONS</code>, <code>POST_PROMOTED_NOTIFICATIONS</code> (a promoted/priority
+  notification channel — likely for live order-tracking notifications), <code>SCHEDULE_EXACT_ALARM</code></li>
+</ul>
+<h3 id="package-level-integrations-via-package-visibility-queries-observed">Package-level integrations (via package-visibility queries, OBSERVED)</h3>
+<ul>
+<li><strong><code>com.grofers.customerapp</code></strong> — this is Blinkit's OLD package name (Grofers rebranded
+  to Blinkit after Zomato's acquisition). Confirms Zomato's app has direct integration
+  with/awareness of Blinkit, consistent with Zomato's real-world multi-vertical strategy
+  (food delivery + dining + grocery under one corporate umbrella, even if not fully merged
+  into one app).</li>
+<li><strong><code>com.carthero.driver</code></strong> — Zomato's own delivery-partner app (Carthero was an earlier
+  Zomato logistics acquisition/brand). Confirms the partner-facing app is SEPARATE from
+  the consumer app, unlike Jinni's single-codebase multi-role design (see
+  jinni-technical-architecture.md) — this is the same "separate apps per role" pattern
+  Zepto appears to use too, making Jinni's unified-app approach the outlier among all
+  three, not the norm. Worth being aware of as a deliberate choice, not an accident.</li>
+<li>Payment: <code>net.one97.paytm</code> (Paytm app-based UPI), <code>com.samsung.android.spay</code> (Samsung
+  Pay) — alongside whatever gateway SDK is in the main app (not yet identified without
+  deeper DEX string scanning for payment SDK names)</li>
+<li>Social/login: Facebook SDK fully present (<code>com.facebook.CustomTabActivity</code>,
+  <code>FacebookActivity</code>, App ID + Client Token meta-data keys) — Facebook login, not seen as
+  prominently in Zepto's manifest (Zepto leaned on Truecaller/OTPLESS instead)</li>
+<li><code>com.google.android.aicore</code> — Google's on-device AI Core (Gemini Nano access) is
+  referenced. INFERRED: possibly powers the voice assistant module seen in the class
+  namespace map, or an on-device recommendation/search feature. Unconfirmed without
+  deeper analysis.</li>
+</ul>
+<h3 id="build-flavor-sub-brand-evidence-observed-via-package-suffix-strings">Build flavor / sub-brand evidence (OBSERVED, via package suffix strings)</h3>
+<p><code>com.application.zomato.default</code>, <code>.gold</code>, <code>.veg</code>, <code>.district</code>, <code>.appstart</code> — these look
+like product-flavor or feature-flag identifiers tied to: Zomato Gold (membership tier),
+a Pure-Veg mode, and District (events vertical), baked in at the package/build level
+rather than purely server-side flags. INFERRED significance: these aren't just marketing
+labels, they're build-system-level identifiers, suggesting real code branching exists for
+at least Gold and Veg-mode as distinct configurations.</p>
+<h2 id="remaining-blockers">Remaining blockers</h2>
+<ul>
+<li>No method-level or control-flow analysis possible without JADX, which times out on
+  this APK regardless of settings tried. Everything above is class/package name and
+  manifest-string evidence, not verified call sites or screen navigation structure.</li>
+<li><code>com.zomato.crystal</code> (1,466 classes, the 5th largest module) has no clear purpose from
+  naming alone — flagged as UNKNOWN, worth deeper investigation if tooling allows later.</li>
+<li><code>com.zomato.karma</code> purpose is inferred (loyalty/engagement) but not confirmed.</li>
+<li>No screen-inventory or workflow-mapping pass done yet for Zomato (would need either a
+  working JADX run with more time, or the same raw-string approach applied per-DEX-file
+  rather than just type descriptors — feasible as a follow-up).</li>
+</ul>
+<div style="page-break-before: always;"></div>
+
+<h1 id="zomato-screen-inventory-workflow-mapping-phases-3-4-combined">Zomato — Screen Inventory &amp; Workflow Mapping (Phases 3 &amp; 4 combined)</h1>
+<p>Method: raw string-literal extraction from all 11 classes*.dex files (same technique as
+the Zepto Hermes scan — printable byte runs, 6-120 chars). Stronger than the Zepto pass
+in one respect: Fragment/Activity CLASS NAMES are real, structurally-confirmed Android
+component names (OBSERVED), not just loose analytics-event strings. Workflow grouping
+below is still INFERRED from name co-occurrence, not verified navigation code.</p>
+<h2 id="architecture-defining-discovery-o2-cart-observed">Architecture-defining discovery: "O2" cart (OBSERVED)</h2>
+<p>Food-ordering cart/checkout events are consistently prefixed <code>O2_</code> or <code>O2</code> (O2CartPageLoaded,
+O2CartCheckoutButtonTapped, O2_Place_Order_Tapped, O2CartPromoApplied, O2OrderPlaced, etc.) —
+INFERRED to mean "Order Online", Zomato's internal name for its core food-delivery cart,
+distinct from <code>Delivery_Cart</code>/<code>DeliveryCartCheckout</code> (possibly an older/alternate naming
+generation) and <code>ZWalletCartFragment</code>/<code>ZomatoPayV3CartFragment</code> (payment-specific cart
+views). Multiple cart naming generations coexisting (<code>O2</code>, <code>Generic</code>, <code>Delivery_</code>,
+<code>Crystal...Order...</code>) suggests this codebase has been through several rewrites — a
+realistic signal for a 10+ year old app, not a design to copy.</p>
+<h2 id="core-food-delivery-screens-observed-class-names">Core food-delivery screens (OBSERVED class names)</h2>
+<ul>
+<li>Home: HomeActivity</li>
+<li>Restaurant page / menu: CrystalFragment, CrystalTopFragment, CrystalMapFragment,
+  ResPageV2Fragment, MenuFragment, MenuSearchFragment, MenuCombosFragment,
+  MenuCustomizationFragment, MenuStoriesFragment (Instagram-style story format for menus)</li>
+<li>Search/discovery: SearchV14Fragment, SearchV14AutoSuggestFragment,
+  SearchV14BottomSheetFragment, SearchListFragment, AutoSuggestionTabsFragment,
+  V2FiltersBottomSheetFragment, V3FiltersBottomSheetFragment</li>
+<li>Cart/checkout: O2CartFragment, GenericCartFragment, CartFullPageFragment,
+  CatalogCartFragment, ChangeCustomizationFragment, CartChangeCustomizationFragment,
+  EditCustomizationsCartFragment, RepeatCustomisationFragment</li>
+<li>OOS handling: CartOosRecommendationFragment (direct parallel to Zepto's
+  SWAP_AND_SAVE / PARTIAL_OOS_BOTTOM_SHEET — same product problem, same solution shape)</li>
+<li>Order lifecycle: GenericOrderHistoryFragment, PostOrderCartFragment,
+  OrderSchedulingSelectorFragment, OrderForSomeOneFragment (order as a gift to someone else)</li>
+<li>Group ordering: GroupOrderFragment, ParticipantInfoFragment, CreateGroupOrderBottomsheet,
+  GroupOrderingMenu — a full multi-participant group-order feature, NOT present in
+  anything observed from Zepto (grocery doesn't typically need this; worth considering
+  for Jinni's food vertical specifically, not grocery)</li>
+</ul>
+<h2 id="payments-observed">Payments (OBSERVED)</h2>
+<ul>
+<li>PaymentOptionsFragment, CardCVVFragment, NoCvvFragment, OTPVerificationFragment,
+  PhoneVerificationFragment</li>
+<li>Dedicated <code>zpay.zomato.com</code> subdomain (own payment product, "ZomatoPay")</li>
+<li>Amazon Pay integration confirmed across regional endpoints (amazon.in, .com, .co.uk,
+  .co.jp, sandbox) — broader regional payment coverage than Zepto showed (Zepto's Amazon
+  Pay integration appeared India-only)</li>
+<li>ZWalletCartFragment, ZWalletDashboardFragment, ZomatoMoneyIntroPageFragment,
+  ZomatoMoneyLandingPageFragment — wallet UI confirmed (matches walletkit namespace from
+  the class-count table)</li>
+<li>ZCreditsTapped (event name) — a SEPARATE currency from Zomato Money wallet; Zomato
+  appears to run two parallel internal-currency systems (Money = wallet, Credits = likely
+  promotional/refund credit) — worth noting as a complexity trap to avoid if Jinni adds
+  its own wallet: pick ONE internal currency model, not two overlapping ones.</li>
+<li>PremiumCheckoutFragment — a distinct checkout path for Gold/Pro members (OBSERVED
+  naming pattern, not confirmed what's actually different about it)</li>
+</ul>
+<h2 id="loyalty-membership-gamification-observed">Loyalty / membership / gamification (OBSERVED)</h2>
+<ul>
+<li>Gold (current): GoldFaqFragment, GoldFullPageFragment, GoldPlanBottomSheetFragment,
+  GoldPlanPageV15Fragment, GoldThankYouFragment, GoldCartPageOpen,
+  GoldCartPlaceOrderSuccess/Failed</li>
+<li>Pro (older/parallel branding?): ProMembershipRefundFragment, ProPlanPageV2Fragment —
+  co-existing with Gold naming suggests a rebrand in progress or regional variation,
+  UNKNOWN which is current</li>
+<li>PremiumReferralFragment, ReferralFragment, ReferralScratchCardFragment, ScratchCardFragment
+  — same scratch-card gamification pattern observed in Zepto, likely an industry-standard
+  pattern worth adopting rather than something uniquely Zomato</li>
+<li>Gamification suite: TriviaFragment, LeaderBoardFragment, EasterGameFragment (seasonal,
+  same pattern as Zepto's IPL/Rakhi tie-ins), HCGamePlayFragment, HCLobbyFragment,
+  HCRoomFragment, HCTeamSelectionFragment, HCRewardsFragment (team-based multiplayer
+  game — acronym unresolved, UNKNOWN), ZPLMatchFragment/ZPLWebFragment (likely "Zomato
+  Premier League", a branded cricket-season engagement campaign)</li>
+<li>ZomatoAwardsFragment, ZomatoAwardsResPageFragment — annual restaurant awards feature,
+  marketing/content, not core commerce</li>
+</ul>
+<h2 id="dine-out-district-vertical-observed">Dine-out / District vertical (OBSERVED)</h2>
+<ul>
+<li>DiningMapsFragment, DiningOfferWallFragment, DiningSearchV14Fragment,
+  DinePaymentStatusFragment, TrBookingFragment (table reservation booking),
+  CrystalMultiOrderBottomSheet, PayBillCartFragment, ProxyBillingActivity, O2CartFragment
+  sibling O2-prefixed-but-dine-related events — a full in-restaurant "pay the bill"
+  feature exists (scan QR at table, pay through app) distinct from delivery ordering</li>
+</ul>
+<h2 id="niche-vertical-specific-features-observed-explicitly-flagging-as-likely-out-of">Niche / vertical-specific features (OBSERVED, explicitly flagging as likely OUT of</h2>
+<h2 id="scope-for-a-groceryfood-delivery-app-same-treatment-as-zeptos-pharmacyexchange">scope for a grocery+food-delivery app — same treatment as Zepto's pharmacy/exchange)</h2>
+<ul>
+<li>TrainOrderingFragment, TrainOrderingSearchFragment — food delivery to train
+  passengers/stations (a real, publicly known Zomato feature)</li>
+<li>HighwayListingFragment, HighwayOnboardingFragment — food ordering for highway travelers</li>
+<li>winecellar.zomato.com (alcohol delivery vertical, confirmed via URL string)</li>
+<li>FeedingIndiaCartFragment — charity donation add-on at checkout (low complexity if
+  Jinni wants a CSR touch, otherwise skip)</li>
+<li>GiftCard* (6+ fragments: Balance, Claim, Customisation, Dashboard, LandingPage,
+  OrderHistory, OrderSummary) — a full gift-card product, more developed than Zepto's
+  single giftCardTncList string suggested</li>
+</ul>
+<h2 id="infrasupport-observed">Infra/support (OBSERVED)</h2>
+<ul>
+<li>ChatSDKMainActivity, ChatMainWindowFragment, ChatGenericBottomSheetFragment,
+  AIBotLandingFragment, AiChatBotLandingFragment, AudioInputBottomSheetFragment (voice
+  input to the chat bot) — the 1,709-class chatsdk namespace maps to a very complete
+  in-app support chat with AI bot + voice input, more developed than Zepto's single
+  chat-bot-add-to-cart event suggested</li>
+<li>AppBlockerWebViewDialogFragment, NotificationBlockerFragment, BlockerFragment — a
+  force-update/maintenance-mode blocking pattern (shows a WebView blocking the app)</li>
+<li>IdProofFragment — ID verification, likely for age-restricted items (alcohol, matches
+  the winecellar vertical)</li>
+<li>SBMDIntroPageFragment, SBMDTransactionsFragment — UNKNOWN acronym, unresolved</li>
+</ul>
+<h2 id="remaining-unknowns-unknown-flagged-honestly-rather-than-guessed">Remaining unknowns (UNKNOWN, flagged honestly rather than guessed)</h2>
+<ul>
+<li>ZFE (ZFEDashboardFragment, ZFEOnboardingFragment) — possibly a B2B/enterprise ordering
+  product given "Dashboard"+"Onboarding" shape, unconfirmed</li>
+<li>MFO_Cart, CSAO (CSAORail, CSAOItem) — acronyms, likely internal shorthand, unresolved</li>
+<li>com.zomato.crystal as a NAMESPACE is now understood (restaurant/menu page module,
+  confirmed via CrystalFragment/CrystalTopFragment/CrystalMapFragment), but SBMD and HC
+  remain unresolved</li>
+<li>com.zomato.karma — still unresolved; no class names in this scan clarify it further</li>
+</ul>
+<div style="page-break-before: always;"></div>
+
+<h1 id="zepto-vs-zomato-comparison-matrix-phase-6">Zepto vs Zomato — Comparison Matrix (Phase 6)</h1>
+<p>Built entirely from this session's own findings (zepto-js-bundle-findings.md,
+zepto-screen-inventory.md, zepto-workflow-mapping.md, zomato-static-analysis.md,
+zomato-screen-inventory.md). Confidence differs by side: Zepto evidence is
+string-table-level (INFERRED structure), Zomato evidence is class-name-level
+(OBSERVED structure, INFERRED grouping) — Zomato evidence is generally the stronger
+of the two, see each source doc for specifics.</p>
+<h2 id="core-architecture">Core architecture</h2>
+<table>
+<thead>
+<tr>
+<th>Dimension</th>
+<th>Zepto</th>
+<th>Zomato</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Platform</td>
+<td>React Native (Hermes bytecode v96)</td>
+<td>Fully native Android (Kotlin), 11 DEX files, 35k+ classes</td>
+</tr>
+<tr>
+<td>Cross-platform strategy</td>
+<td>Single RN codebase for iOS/Android</td>
+<td>Kotlin Multiplatform Mobile (kmm namespace, 156 classes) shares some logic with iOS; rest is platform-native</td>
+</tr>
+<tr>
+<td>App roles</td>
+<td>Single consumer app (store/rider apps inferred separate, not directly observed)</td>
+<td>Consumer app confirmed separate from delivery-partner app (<code>com.carthero.driver</code> seen in package-visibility queries)</td>
+</tr>
+<tr>
+<td>Internal design system</td>
+<td>Not clearly named in evidence</td>
+<td>"Sushi" (442 classes) — publicly documented Zomato design system</td>
+</tr>
+<tr>
+<td>Server-driven UI</td>
+<td>"LayoutEngine" (confirmed via deep-link URLs, <code>LayoutEngine?pageId=...</code>)</td>
+<td>"ZFE" (zfekit, 153 classes) — likely analogous, unconfirmed purpose</td>
+</tr>
+</tbody>
+</table>
+<h2 id="cart-checkout_1">Cart &amp; checkout</h2>
+<table>
+<thead>
+<tr>
+<th>Dimension</th>
+<th>Zepto</th>
+<th>Zomato</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Cart model</td>
+<td>Single store/dark-store cart, store pre-resolved by location before checkout</td>
+<td>"O2" cart for delivery, separate dine-out bill-pay cart, separate Gold-purchase cart — several parallel cart systems for different contexts</td>
+</tr>
+<tr>
+<td>OOS/substitution</td>
+<td>SWAP_AND_SAVE, PARTIAL_OOS_BOTTOM_SHEET</td>
+<td>CartOosRecommendationFragment — same underlying problem (grocery/restaurant item unavailable), same solved pattern independently in both apps — worth treating as a genuinely standard pattern to build for Jinni, not optional</td>
+</tr>
+<tr>
+<td>Coupons/promos</td>
+<td>SCREEN_VIEWED_COUPON_BS, MANUAL_COUPON_BOTTOMSHEET</td>
+<td>O2CartPromoApplied, O2CartPromoRemoved, OfferItemSelectionSheetFragment</td>
+</tr>
+<tr>
+<td>Group/shared ordering</td>
+<td>Not observed</td>
+<td>GroupOrderFragment, ParticipantInfoFragment, CreateGroupOrderBottomsheet — food-delivery-specific, no grocery equivalent observed in either app</td>
+</tr>
+<tr>
+<td>Scheduled orders</td>
+<td>pickupTimeSelector, selectFutureTimestamp</td>
+<td>OrderSchedulingSelectorFragment</td>
+</tr>
+<tr>
+<td>Gift cards</td>
+<td>Single string reference only (giftCardTncList) — limited evidence of a full product</td>
+<td>6+ dedicated screens (Balance/Claim/Customisation/Dashboard/LandingPage/OrderHistory/OrderSummary) — clearly the more developed gift-card product of the two</td>
+</tr>
+</tbody>
+</table>
+<h2 id="payments_1">Payments</h2>
+<table>
+<thead>
+<tr>
+<th>Dimension</th>
+<th>Zepto</th>
+<th>Zomato</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Primary gateway/SDK</td>
+<td>Juspay HyperSDK (deeply integrated: UPI, NFC, bank selection, OTP auto-read)</td>
+<td>Own "ZomatoPay" (dedicated zpay.zomato.com subdomain) — gateway SDK name not identified in this pass</td>
+</tr>
+<tr>
+<td>Secondary payment</td>
+<td>Amazon Pay (India-focused, single region observed)</td>
+<td>Amazon Pay across multiple regions (IN, US, UK, JP, sandbox) — broader regional coverage observed</td>
+</tr>
+<tr>
+<td>Wallet</td>
+<td>Zepto Cash (single wallet currency)</td>
+<td>TWO parallel systems: Zomato Money (wallet) + Zomato Credits (separate currency) — a complexity trap, not a pattern to copy</td>
+</tr>
+<tr>
+<td>BNPL/EMI</td>
+<td>ZeptoPaylaterRepaymentWidget, PAY_WITH_EMI_BS, NO_COST_EMI</td>
+<td>Not observed in this pass (doesn't mean absent — just not surfaced by this extraction method)</td>
+</tr>
+<tr>
+<td>Saved cards</td>
+<td>SAVE_SECURE_MODAL, CARD_BIN_VERIFICATION</td>
+<td>CardCVVFragment, NoCvvFragment</td>
+</tr>
+<tr>
+<td>Auth-adjacent payment features</td>
+<td>WhatsApp OTP, Truecaller, OTPLESS</td>
+<td>OTPVerificationFragment, PhoneVerificationFragment — less SDK diversity observed than Zepto, though Facebook login SDK is more prominent in Zomato's manifest</td>
+</tr>
+</tbody>
+</table>
+<h2 id="loyalty-membership-gamification">Loyalty, membership, gamification</h2>
+<table>
+<thead>
+<tr>
+<th>Dimension</th>
+<th>Zepto</th>
+<th>Zomato</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Paid membership</td>
+<td>"Loyalty Pass" / "Super Saver" / "Ultra Saver" tiers</td>
+<td>Zomato Gold (current branding) + legacy/parallel "Pro" naming still present in code</td>
+</tr>
+<tr>
+<td>Points/rewards currency</td>
+<td>ZCoins</td>
+<td>"Karma" namespace exists (192 classes) — purpose UNKNOWN, possibly analogous</td>
+</tr>
+<tr>
+<td>Scratch-card mechanic</td>
+<td>gamification.scratchcard native module</td>
+<td>ScratchCardFragment, ReferralScratchCardFragment — same mechanic, independently confirmed in both apps as a standard pattern</td>
+</tr>
+<tr>
+<td>Seasonal campaigns</td>
+<td>IPL_25_SKIP_BOWLING_BOTTOM_SHEET, Rakhi messaging feature</td>
+<td>EasterGameFragment, ZPL (likely "Zomato Premier League", cricket-themed) — same seasonal-campaign pattern, different specific tie-ins</td>
+</tr>
+<tr>
+<td>Dedicated gamification suite</td>
+<td>Not as extensive in observed evidence</td>
+<td>TriviaFragment, LeaderBoardFragment, HC*(Game/Lobby/Room/TeamSelection/Rewards) — Zomato's gamification investment appears larger (458-class namespace vs scattered Zepto references)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="support-tracking-and-infra">Support, tracking, and infra</h2>
+<table>
+<thead>
+<tr>
+<th>Dimension</th>
+<th>Zepto</th>
+<th>Zomato</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>In-app chat/support</td>
+<td>i_chat_bot_add_to_cart_clicked, ChatBotResetConfirmation — a few event strings, limited evidence of scope</td>
+<td>1,709-class <code>chatsdk</code> namespace: ChatSDKMainActivity, AIBotLandingFragment, AudioInputBottomSheetFragment (voice input) — substantially more developed support system observed</td>
+</tr>
+<tr>
+<td>Live tracking</td>
+<td>FusedLocation native module, lastRiderLocationPress, rider_to_customer_eta</td>
+<td>MQTT-based real-time infra: pulsemqtt, mqtt, livetelemetry, argus namespaces — a more explicit real-time-protocol investment than Zepto's evidence shows</td>
+</tr>
+<tr>
+<td>Analytics pipeline</td>
+<td>Firebase Analytics, Sentry (manual init), AppsFlyer</td>
+<td>Firebase-style events plus "Jumbo" (jumbo.zomato.com) — Zomato's own publicly-documented internal analytics/event pipeline</td>
+</tr>
+<tr>
+<td>Security/anti-fraud</td>
+<td>Play Integrity attestation, RSA-OAEP, WAF module, EncryptedMMKV</td>
+<td>Certificate pinning hosts observed (cert1/2/3.zomato.com) — different specific mechanism, same general goal</td>
+</tr>
+<tr>
+<td>Health/wellness integration</td>
+<td>Not observed</td>
+<td>Android Health Connect nutrition-write permission — unique to Zomato in this comparison</td>
+</tr>
+</tbody>
+</table>
+<h2 id="out-of-core-scope-verticals-present-in-evidence-explicitly-not-recommended-to-copy">Out-of-core-scope verticals (present in evidence, explicitly not recommended to copy)</h2>
+<table>
+<thead>
+<tr>
+<th>Zepto</th>
+<th>Zomato</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Pharmacy (prescription upload/consent)</td>
+<td>Alcohol delivery (Wine Cellar)</td>
+</tr>
+<tr>
+<td>Electronics trade-in/exchange (IMEI capture)</td>
+<td>Train-station food ordering</td>
+</tr>
+<tr>
+<td>—</td>
+<td>Highway-traveler food ordering</td>
+</tr>
+<tr>
+<td>—</td>
+<td>Dine-out table booking + in-restaurant bill pay</td>
+</tr>
+<tr>
+<td>—</td>
+<td>Zomato District (events, separate growing vertical)</td>
+</tr>
+</tbody>
+</table>
+<p>Both apps have clearly grown well beyond their original single-vertical scope over time.
+This is a useful cautionary data point for Jinni: scope creep into adjacent verticals
+(cab, salon — already active in Jinni's module registry per jinni-technical-architecture.md)
+is the INDUSTRY NORM for apps at this stage, not a Jinni-specific risk, but it still needs
+to be a deliberate resourcing decision rather than something that happens by default.</p>
+<h2 id="shared-patterns-worth-treating-as-table-stakes-for-jinni-both-apps-independently-converged-on-these">Shared patterns worth treating as "table stakes" for Jinni (both apps independently converged on these)</h2>
+<ol>
+<li>OOS/substitution handling at cart/checkout (not optional — both apps solved this)</li>
+<li>Coupon/promo code application in cart</li>
+<li>Scratch-card or similar gamified reveal mechanic for promotions</li>
+<li>Seasonal/campaign-driven UI tie-ins (different specific events, same underlying system)</li>
+<li>Server-driven layout/UI system for the home/discovery surface (LayoutEngine / ZFE)</li>
+<li>Multi-channel OTP/auth verification redundancy (SMS + at least one alternate channel)</li>
+</ol>
+<h2 id="whats-genuinely-different-not-just-differently-named-real-architectural-choices">What's genuinely different, not just differently-named (real architectural choices)</h2>
+<ol>
+<li>React Native (Zepto) vs native Android+KMM (Zomato) — a real platform-strategy fork</li>
+<li>Single predetermined dark-store (Zepto) vs race-to-accept nearby-store broadcast,
+   which is actually closer to Jinni's own grocery order model than Zepto's is — worth
+   double-checking whether Zomato's RESTAURANT-side order acceptance (not grocery) uses
+   a similar broadcast model, since that's the more relevant comparison for Jinni's food
+   vertical specifically. UNKNOWN from this pass — would need targeted follow-up.</li>
+<li>One wallet currency (Zepto) vs two parallel currencies (Zomato) — Zepto's simpler
+   model is the one worth following if Jinni builds a wallet</li>
+</ol>
+<div style="page-break-before: always;"></div>
+
+<h1 id="jinni-phase-5-technical-architecture-findings-superapp-mobile">Jinni — Phase 5: Technical Architecture Findings (superapp-mobile)</h1>
+<p>All OBSERVED — read directly from source files in E:\work\super\superapp-mobile\src.</p>
+<h2 id="state-management">State management</h2>
+<ul>
+<li><strong>Zustand</strong> throughout, via two factory helpers in shared/store/useStore.ts:</li>
+<li><code>createStore</code> — plain store with devtools middleware only</li>
+<li><code>createPersistedStore</code> — adds <code>persist</code> middleware backed by AsyncStorage (custom
+    storage adapter, JSON-serialized), a <code>partialize</code> step that strips transient fields
+    (<code>isLoading</code>, <code>error</code>) from what gets persisted, and an <code>onRehydrateStorage</code> hook</li>
+<li>Special case: the auth store's rehydration hook calls <code>setApiToken()</code> to warm the
+    API client's in-memory token cache immediately on cold start, avoiding an
+    AsyncStorage round-trip on the first request</li>
+<li>Per-module stores follow this same pattern consistently: <code>cartStore</code>, <code>groceryStore</code>,
+  <code>orderStore</code>, <code>authStore</code>, <code>locationStore</code> all use one of the two factories</li>
+<li>Minor cleanup item (not urgent): <code>createPersistedStore</code> has several <code>console.log</code> debug
+  statements left in (store creation, storage reads, rehydration status) — fine for dev,
+  worth stripping or gating behind <code>__DEV__</code> before a release build</li>
+</ul>
+<h2 id="cart-architecture">Cart architecture</h2>
+<ul>
+<li><strong>Single unified cart store</strong> (<code>modules/cart/store/cartStore.ts</code>) shared across ALL
+  verticals (food, grocery, cab, salon), not per-module carts. Each <code>CartItem</code> carries
+  its own <code>moduleType</code> and <code>sourceId</code>/<code>sourceName</code> (restaurant or store).</li>
+<li>Cross-source conflict handling: <code>addItem()</code> returns <code>{ok: false, needsConfirm: true, ...}</code>
+  if the cart already has items from a different restaurant/store IN THE SAME module type,
+  requiring the caller to explicitly call <code>forceAddItem()</code> to replace that module's items.
+  This is the single-cart equivalent of what many single-vertical apps (including, per
+  Phase 1-4 evidence, likely Zepto) handle by just locking the cart to one store — Jinni's
+  version is more general since it has to coexist with 3 other verticals in the same store.</li>
+<li>Per-module derived totals (<code>getFoodTotal</code>, <code>getGroceryTotal</code>) exist on the shared store
+  rather than each module computing its own — keeps a single source of truth.</li>
+</ul>
+<h2 id="api-networking-layer">API / networking layer</h2>
+<ul>
+<li>Single Axios instance (<code>shared/services/api.ts</code>), REST only, base path <code>/api/v1</code> against
+  a FastAPI-style backend (consistent with your profile: FastAPI/PostgreSQL backend).</li>
+<li><strong>Auth token handling</strong>: in-memory <code>_tokenCache</code> warmed on login/refresh/rehydration,
+  with AsyncStorage as fallback for cold-start before the store rehydrates. JWT validity
+  is sanity-checked by segment count (3 dot-separated parts) before use.</li>
+<li><strong>401 handling</strong>: response interceptor catches 401, attempts a refresh-token exchange
+  exactly once (<code>_retry</code> flag guards against infinite loop), updates the in-memory cache
+  before retrying the original request, and on refresh failure clears all auth storage
+  and calls a registered <code>onAuthFailure</code> callback — this callback indirection avoids a
+  circular import between api.ts and authStore.</li>
+<li>No request-level retry/backoff beyond the single 401-refresh retry; no offline request
+  queue observed in this file (would need to check elsewhere if that's a requirement).</li>
+</ul>
+<h2 id="navigation">Navigation</h2>
+<ul>
+<li><strong>React Navigation</strong> (native-stack). <code>RootNavigator</code> is role-based, not just
+  authenticated-vs-not: it inspects <code>user.role</code> and <code>user.status</code> to route into one of
+  FIVE distinct navigators — Auth, Main (customer), Admin, Store (store-owner), Partner
+  (covers restaurant/delivery/cab_driver/salon roles with one shared navigator).</li>
+<li>This is architecturally distinct from Zepto: Zepto (per Phase 1 manifest findings) is a
+  single-role consumer app; store and delivery-partner experiences are presumably separate
+  apps/products. Jinni is ONE codebase serving customer + admin + store + all partner
+  types, routed by role at the root. This is a significant design decision with real
+  tradeoffs (single codebase to maintain and ship vs. bundle size / permission surface
+  covering all roles in one build) worth being deliberate about rather than incidental.</li>
+<li><code>isFullySetup</code> gates on <code>profile_complete</code> AND <code>role</code> being set, with a distinct
+  <code>pending_approval</code> status screen — suggests partner/store roles go through a
+  manual-approval step before activation, unlike customer signup.</li>
+</ul>
+<h2 id="module-architecture">Module architecture</h2>
+<ul>
+<li>Static module registry (<code>modules/moduleRegistry.ts</code>): food, grocery, cab, salon are
+  all <code>enabled: true</code> RIGHT NOW — confirmed NOT dormant scaffolding. Jinni is actively a
+  4-vertical super-app today, not grocery+food with extra folders. Worth flagging
+  explicitly since it's broader than your original research brief's framing
+  ("grocery-commerce and food-delivery application") — may be worth a scope conversation
+  about whether cab/salon share your roadmap priority or are earlier-stage/parked work.</li>
+<li>Each module supplies a <code>HomeCard</code> component (home screen vertical switcher tile) and a
+  <code>navigator</code> (its own stack) — consistent, pluggable pattern. Static imports are used
+  deliberately ("Metro compatibility" per inline comment) rather than dynamic
+  require/lazy-loading, which is a reasonable tradeoff for a 4-module app but would need
+  revisiting if more verticals are added (bundle size grows linearly with every module,
+  always included, never code-split).</li>
+</ul>
+<h2 id="order-model-carried-over-from-phase-7-note-included-here-for-completeness">Order model (carried over from Phase 7 note, included here for completeness)</h2>
+<ul>
+<li>Grocery orders use a "race-to-accept" broadcast model: order is placed generically via
+  <code>POST /orders</code>, backend notifies nearby stores to accept — no store pre-selected by the
+  customer at checkout. This is a deliberate architectural choice distinct from Zepto's
+  single-resolved-dark-store model, with implications for Phase 5 serviceability-check
+  design (per Phase 7 gap analysis): "is this address serviceable" in Jinni's model means
+  "will any nearby store accept this", which is a different (harder) guarantee to give
+  the customer upfront than Zepto's "this specific store will fulfill it."</li>
+</ul>
+<div style="page-break-before: always;"></div>
+
+<h1 id="jinni-vs-zepto-feature-gap-analysis-grocery-phase-7-excerpt">Jinni vs Zepto — Feature Gap Analysis (Grocery, Phase 7 excerpt)</h1>
+<p>Based on: Zepto static analysis (manifest + Hermes string-table evidence, see
+zepto-js-bundle-findings.md and zepto-screen-inventory.md) vs Jinni's current
+superapp-mobile/src/modules/{grocery,cart,orders,profile,home} structure (OBSERVED via
+read-only directory listing on E:\work\super — not yet file-content-level review).</p>
+<p>Confidence note: Jinni side is OBSERVED (real file listing). Zepto side is INFERRED from
+bytecode string evidence (no code-level confirmation). Treat gaps below as directional,
+not exhaustive — a deeper pass should open each Jinni screen file to confirm what's actually
+implemented vs just scaffolded.</p>
+<h2 id="structural-observation-observed-updated-after-reading-file-content">Structural observation (OBSERVED, UPDATED after reading file content)</h2>
+<ul>
+<li>CORRECTION: <code>GroceryCartScreen.tsx</code> and <code>UnifiedCartScreen.tsx</code> are NOT duplicates. Both
+  read the same shared <code>cartStore</code>; <code>GroceryCartScreen</code> filters to <code>moduleType === 'grocery'</code>.
+  This is an intentional unified-cart-across-verticals design (food module does the same
+  filtering pattern, per an inline code comment). Not a gap or inconsistency.</li>
+<li>Jinni already has a module structure for cab, salon, delivery, food, grocery, admin —
+  broader scope than "grocery + food delivery" alone. Worth confirming whether cab/salon
+  are active priorities or dormant scaffolding, since it affects how much shared
+  infrastructure (address, payments, cart) needs to serve non-commerce verticals too.</li>
+<li>ARCHITECTURAL DIFFERENCE from Zepto (OBSERVED in GroceryCheckoutScreen.tsx code comment):
+  Jinni's grocery order model is "race-to-accept" — the order is placed generically via
+  <code>POST /orders</code> and the backend broadcasts it to nearby stores to accept, with no store
+  chosen at checkout. Zepto's model (INFERRED from Phase 1 manifest findings: single
+  resolved-location-driven dark store via Haversine distance) pre-assigns a specific store
+  before checkout. This is a deliberate, different design, not a gap — flagging for
+  awareness since it changes what "store selection" even means in Jinni vs Zepto.</li>
+</ul>
+<h2 id="confirmed-present-in-jinni-observed-file-content-verified-for-checkoutcart">Confirmed present in Jinni (OBSERVED, file-content-verified for checkout/cart)</h2>
+<ul>
+<li>Store list, category browse, product list, product detail, cart, checkout (grocery module)</li>
+<li>Order history, order tracking (orders module)</li>
+<li>Saved addresses, profile, help/support, legal (profile module)</li>
+<li>Home with search bar, location header/prompt, hero carousel (home module)</li>
+<li><strong>Checkout (verified in code, not just file listing):</strong> real saved-address selection with
+  inline new-address entry, two payment methods (COD, UPI via Paytm with server-side
+  payment verification/reconciliation — never trusts the client SDK result alone), coupon
+  code entry that calls a real <code>/coupons/validate</code> backend endpoint, bill breakdown
+  (subtotal, delivery fee with free-above-Rs. 500 threshold, 5% GST, coupon discount, total),
+  and a free-text notes field whose placeholder explicitly suggests "substitute if out of
+  stock" — i.e. OOS substitution is handled as a manual note to the store, not a structured
+  flow (see P0 table below, this downgrades that gap's severity).</li>
+</ul>
+<h2 id="gaps-vs-zeptos-observed-feature-surface-p0-core-commerce-p1-conversionretention-p2-nice-to-have">Gaps vs Zepto's observed feature surface (P0 = core commerce, P1 = conversion/retention, P2 = nice-to-have)</h2>
+<h3 id="p0-core-commerce-likely-needed-before-launch">P0 — core commerce, likely needed before launch</h3>
+<table>
+<thead>
+<tr>
+<th>Zepto evidence</th>
+<th>Jinni status (CODE-VERIFIED)</th>
+<th>Gap</th>
+<th>Complexity</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>SCREEN_VIEWED_UNSERVICEABLE_STORE, ADDRESS_SERVICE_UNAVAILABLE</td>
+<td>Checkout only validates pincode length (6 digits) and address line length — no check against actual store/delivery coverage before allowing order placement</td>
+<td>Still a real gap: need an explicit "not serviceable at this address" check, ideally before checkout (at address-select or home) not just generic order-placement failure</td>
+<td>Low-Medium</td>
+</tr>
+<tr>
+<td>SCREEN_VIEWED_PARTIAL_OOS_BOTTOM_SHEET, SWAP_AND_SAVE</td>
+<td>DOWNGRADED — handled only via a free-text "notes for store" field (placeholder literally suggests "substitute if out of stock"), not a structured flow. No programmatic OOS detection, no swap suggestion UI, no partial-fulfillment confirmation step</td>
+<td>Real gap remains, but less severe than first assessed: a manual-notes workaround already exists; building a structured flow is an enhancement, not a from-scratch feature</td>
+<td>Medium</td>
+</tr>
+<tr>
+<td>JUSPAY_UPI_APPS_BOTTOMSHEET_VIEWED, PAY_COD_ZIC_BUTTON_CLICKED, PAY_ONLINE_ZIC_BUTTON_CLICKED</td>
+<td>DOWNGRADED — Jinni DOES have a real payment method picker (COD vs UPI-via-Paytm) with server-side payment verification/reconciliation (doesn't trust client SDK alone). Single gateway (Paytm) vs Zepto's multi-provider (Juspay + Amazon Pay) stack</td>
+<td>Smaller gap than first assessed: core UX pattern already exists; the gap is provider breadth (saved cards, multiple UPI intent apps shown individually, EMI) not the picker itself</td>
+<td>Low-Medium</td>
+</tr>
+<tr>
+<td>SCREEN_VIEWED_COUPON_BS, MANUAL_COUPON_BOTTOMSHEET_CTA_CLICKED</td>
+<td>CORRECTED — coupon entry EXISTS and calls a real <code>/coupons/validate</code> backend endpoint with discount applied to the bill</td>
+<td>No gap — already implemented. Removed from gap list.</td>
+<td>N/A</td>
+</tr>
+</tbody>
+</table>
+<h3 id="p1-conversion-and-retention-features">P1 — conversion and retention features</h3>
+<table>
+<thead>
+<tr>
+<th>Zepto evidence</th>
+<th>Jinni status</th>
+<th>Gap</th>
+<th>Complexity</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>ZCoins (loyalty currency), Zepto Cash (wallet)</td>
+<td>No wallet/loyalty module or screens found anywhere in src/modules</td>
+<td>Entire loyalty/wallet system absent — large scope item, needs its own module</td>
+<td>High</td>
+</tr>
+<tr>
+<td>SCREEN_VIEWED_REFERRALS_PAGE, referral program events</td>
+<td>No referral screens found</td>
+<td>Referral program absent</td>
+<td>Medium</td>
+</tr>
+<tr>
+<td>SHOW_ORDER_RATING_MODAL_V2, RNR_TOAST_VARIANT</td>
+<td>No rate-and-review screen/component found for orders</td>
+<td>Post-delivery rating flow absent</td>
+<td>Low-Medium</td>
+</tr>
+<tr>
+<td>SCREEN_VIEWED_PAY_WITH_EMI_BS, NO_COST_EMI</td>
+<td>No EMI/BNPL option</td>
+<td>Likely out of scope for MVP — flag only</td>
+<td>Low priority to build</td>
+</tr>
+</tbody>
+</table>
+<h3 id="p2-nice-to-have-platform-maturity">P2 — nice-to-have / platform maturity</h3>
+<table>
+<thead>
+<tr>
+<th>Zepto evidence</th>
+<th>Jinni status</th>
+<th>Gap</th>
+<th>Complexity</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Scheduled/future delivery (pickupTimeSelector)</td>
+<td>No scheduling UI found</td>
+<td>Delivery-time selection absent</td>
+<td>Medium</td>
+</tr>
+<tr>
+<td>Shopping lists (SCREEN_VIEWED_SHOPPING_LIST_PAGE)</td>
+<td>Not found</td>
+<td>Saved shopping lists absent</td>
+<td>Low-Medium</td>
+</tr>
+<tr>
+<td>PIP shoppable video</td>
+<td>Not found</td>
+<td>Not recommended for MVP scope</td>
+<td>N/A</td>
+</tr>
+<tr>
+<td>Gift cards / vouchers</td>
+<td>Not found</td>
+<td>Defer unless business requires it</td>
+<td>Medium</td>
+</tr>
+</tbody>
+</table>
+<h2 id="explicitly-not-recommended-to-replicate-per-your-original-instruction-to-design">Explicitly NOT recommended to replicate (per your original instruction to design</h2>
+<p>original architecture, not copy Zepto 1:1)
+- Pharmacy vertical (prescription upload/consent) — out of grocery scope unless Jinni plans
+  to sell regulated items
+- Electronics exchange/trade-in flow — unrelated to grocery+food delivery
+- Festival-specific campaign screens (Rakhi, IPL tie-ins) — seasonal marketing, not core architecture</p>
+<div style="page-break-before: always;"></div>
+
+<h1 id="jinni-food-module-deep-verification-code-level-same-rigor-as-grocery">Jinni — Food Module Deep Verification (code-level, same rigor as grocery)</h1>
+<h2 id="checkout-verified-in-code-checkoutscreentsx-food-module">Checkout (verified in code: CheckoutScreen.tsx, food module)</h2>
+<p>Same quality tier and pattern as grocery checkout: real saved-address selection,
+COD/UPI(Paytm) with server-side reconciliation (never trusts client SDK alone), coupon
+via the SAME shared <code>/coupons/validate</code> endpoint (differentiated by <code>order_type: 'food'</code>
+vs grocery's implicit type) — confirms coupons are a genuinely shared backend system
+across verticals, not duplicated per-module. Bill breakdown adds a food-specific
+<code>packaging_fee</code> line grocery doesn't have. Defensive UUID validation on restaurant/item/
+option IDs with specific inline comments referencing real past bugs (a 422 "Input should
+be a valid UUID" error) — this is evidence of real debugging history, not speculative
+code. Same gaps as grocery: serviceability is pincode-length-only, no group ordering, no
+scheduled delivery.</p>
+<h2 id="major-correction-order-with-jinni-ai-ordering-assistant-is-real-not-a-stub">MAJOR CORRECTION: "Order with Jinni" AI ordering assistant is REAL, not a stub</h2>
+<p>Initial read of <code>OrderWithJinniButton.tsx</code> (food module) suggested this was UI-only, per
+its own code comment: "functional food pre-load (search_food / add_items_to_cart tools)
+is backend work tracked separately; this wires the UI entry point and context hint only."</p>
+<p>Opening <code>useJinniSession.ts</code> and <code>interpretService.ts</code> (jinni module) shows this comment
+is STALE — the feature is substantially built and functioning end-to-end:</p>
+<ul>
+<li><strong>Voice session lifecycle</strong>: open -&gt; listening -&gt; submitWish -&gt; thinking -&gt; results -&gt;
+  confirmAddToCart -&gt; success, with server-tracked sessions (startSession/cancelSession/
+  completeSession) and a rate-limited "wishes" quota (server-enforced via HTTP 429, with
+  a client-side <code>isExhausted</code> check as a fast-path, refreshed from server state) — the
+  genie/"Chirag" persona theme is carried through a named phrase system and TTS.</li>
+<li><strong>Real backend intent interpretation</strong>: <code>interpretService.ts</code>'s own comment confirms
+  hardcoded demo catalogs were explicitly REMOVED from the production path. All results
+  come from <code>/jinni/interpret</code>, which the comment says reads from live <code>products</code>/
+  <code>menu_items</code> tables (superapp-backend/app/modules/jinni/search_service.py — referenced
+  but not independently opened in this pass, so treat the backend claim as INFERRED from
+  a specific, detailed frontend comment rather than OBSERVED directly).</li>
+<li><strong>Local-first UX, server-authoritative data</strong>: a local keyword matcher
+  (<code>JinniIntentFinder</code>) gives instant UI feedback and a confidence hint sent to the
+  backend, but is explicitly never trusted as a source of truth — on backend failure, the
+  code deliberately surfaces a clarification message rather than fabricating items from
+  the local match. This is a notably careful anti-hallucination design choice.</li>
+<li><strong>Real cart integration</strong>: <code>confirmAddToCart</code> builds real cart lines and reuses the
+  exact same cross-source conflict pattern (<code>addItem</code> / <code>forceAddItem</code>) documented in
+  jinni-technical-architecture.md for the shared cart store — this isn't a parallel path,
+  it feeds the same cart everything else uses.</li>
+<li><strong>TTS safety rule</strong> (explicit in code comment): the app is only ever allowed to SPEAK
+  pre-scripted phrases, never dynamic AI-generated text, product names, prices, or order
+  details out loud — a deliberate guard against reading untrusted/hallucinated content
+  aloud. Good practice worth preserving as this feature grows.</li>
+</ul>
+<h2 id="why-this-matters-for-the-gap-analysis">Why this matters for the gap analysis</h2>
+<p>Neither Zepto nor Zomato showed evidence of anything like this. Zepto has a single
+<code>i_chat_bot_add_to_cart_clicked</code> event (a support-chat-bot-can-add-to-cart feature, much
+narrower). Zomato has a more developed chat SDK (1,709 classes) with AI bot + voice
+input, but evidence doesn't show it driving a full voice-to-cart wish-granting flow with
+its own quota/persona system. If this works as the code suggests, it's a genuine
+differentiator already built, not a gap to close — the gap analysis should REMOVE any
+assumption that Jinni needs to catch up here, and instead flag this as something worth
+featuring prominently rather than hiding as an experimental side feature.</p>
+<h2 id="caveat-resolved">Caveat — RESOLVED</h2>
+<p>The backend endpoint was independently verified (superapp-backend/app/modules/jinni/
+search_service.py opened directly). The claim is now OBSERVED, not just inferred from a
+frontend comment: real async SQLAlchemy queries against live <code>Product</code>, <code>MenuItem</code>, and
+<code>Restaurant</code> tables, genuine stock/availability checks (grocery: <code>stock_quantity -
+reserved_quantity &gt; 0</code>; food: <code>item.is_available AND restaurant.is_open AND
+restaurant.is_accepting_orders</code>), and a deliberately engineered two-tier search strategy:
+full-phrase ILIKE match tried first, loose single-keyword match only as fallback — with
+the module docstring explicitly documenting a real disambiguation bug this was built to
+fix ("paneer butter masala" misrouting to grocery because "butter" overlaps both
+domains; the fallback now tries the OTHER module's full phrase before giving up). This
+is production-quality, bug-driven engineering, not a prototype. The "Order with Jinni"
+feature is confirmed end-to-end: frontend voice session -&gt; backend intent search against
+real inventory -&gt; cart integration. Treat this as one of Jinni's most mature subsystems,
+not a gap or a stub.</p>
+<h2 id="grocery-product-listing-productlistscreentsx-additional-verification">Grocery product listing (ProductListScreen.tsx) — additional verification</h2>
+<p>Confirms consistent quality: discount-percent badges (price vs MRP), inline quantity
+stepper reusing the shared cart store, proper out-of-stock blocking (item is shown but
+the ADD button is replaced with an "Out of Stock" label — consistent with earlier
+finding that OOS substitution exists only as a checkout-notes workaround, not a
+structured swap-suggestion UI at the listing level), a floating cart button with a live
+item-count badge, and explicit pull-to-refresh/error-retry states. A code comment
+literally says "Blinkit-style" card design — confirms the UI pattern was deliberately
+modeled on a known reference, consistent with this whole research project's premise.</p>
+<h2 id="overall-assessment-of-this-deep-verification-pass">Overall assessment of this deep-verification pass</h2>
+<p>Across checkout (both verticals), cart, and product listing: Jinni's core commerce code
+is consistently well-engineered — real defensive validation, genuine bug-driven design
+decisions documented in comments, and no evidence of placeholder/mock logic in the paths
+checked. The AI ordering assistant is a confirmed, working, differentiated feature. The
+gaps that remain (serviceability pre-check, structured OOS substitution, group ordering,
+scheduled delivery) are genuine and worth prioritizing, but they are gaps in an otherwise
+solid foundation, not signs of an unfinished app.</p>
+</body>
+</html>
