@@ -29,6 +29,7 @@ from app.modules.users.addresses_router import router as addresses_router
 from app.modules.coupons.router import router as coupons_router
 from app.modules.payments_paytm import router as paytm_router
 from app.modules.support.router import router as support_router
+from app.modules.engagement.router import router as engagement_router
 from app.admin.router import router as admin_router
 from app.modules.delivery_otp.webhooks import router as webhook_router
 from app.realtime.router import router as realtime_router, redis_subscriber_loop
@@ -86,10 +87,23 @@ app = FastAPI(
 )
 
 # ── Middleware ────────────────────────────────────────────────────────────────
+_cors_origins = [o.strip() for o in settings.CORS_ORIGINS.split(",") if o.strip()] or ["*"]
+
+if not settings.DEBUG:
+    # Fail fast on obviously unsafe production config rather than serving it.
+    if len(settings.SECRET_KEY) < 32:
+        raise RuntimeError("SECRET_KEY must be at least 32 characters when DEBUG=false")
+    if _cors_origins == ["*"]:
+        logger.warning("CORS_ORIGINS is '*' with DEBUG=false — restrict it to your real origins")
+    if settings.OTP_DEBUG:
+        logger.warning("OTP_DEBUG=true with DEBUG=false — OTPs are exposed for testing; disable before go-live")
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],   # Restrict to your domain in production
-    allow_credentials=True,
+    allow_origins=_cors_origins,
+    # Credentials + wildcard origin is rejected by browsers anyway; only allow
+    # credentials when origins are explicit.
+    allow_credentials=_cors_origins != ["*"],
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -105,6 +119,7 @@ app.include_router(addresses_router, prefix="/api/v1")
 app.include_router(coupons_router, prefix="/api/v1")
 app.include_router(paytm_router, prefix="/api/v1")
 app.include_router(support_router, prefix="/api/v1")
+app.include_router(engagement_router, prefix="/api/v1")  # wallet, referral, shopping lists
 app.include_router(admin_router,    prefix="/api/v1")
 app.include_router(jinni_router, prefix="/api/v1")  # Jinni AI sessions
 app.include_router(webhook_router, prefix="/api/v1")  # Meta WhatsApp + SMS webhooks

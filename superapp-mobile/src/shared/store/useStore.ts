@@ -3,13 +3,18 @@ import { devtools, persist } from 'zustand/middleware';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { setApiToken } from '@services/api';
 
+// Debug logging only in dev builds — release builds stay silent.
+const debugLog = (...args: unknown[]) => {
+  if (__DEV__) console.log(...args);
+};
+
 // Store persistence helper
 export const createPersistedStore = <T extends object>(
   name: string,
   initialState: T,
   storeCreator: (set: any, get: any) => Omit<T, keyof typeof initialState>
 ) => {
-  console.log(`[createPersistedStore:${name}] Creating persisted store...`);
+  debugLog(`[createPersistedStore:${name}] Creating persisted store...`);
   return create<T>()(
     devtools(
       persist(
@@ -21,9 +26,9 @@ export const createPersistedStore = <T extends object>(
           name,
           storage: {
             getItem: async (key: string) => {
-              console.log(`[createPersistedStore:${name}] Reading from storage:`, key);
+              debugLog(`[createPersistedStore:${name}] Reading from storage:`, key);
               const value = await AsyncStorage.getItem(key);
-              console.log(`[createPersistedStore:${name}] Storage value:`, value ? 'found' : 'null');
+              debugLog(`[createPersistedStore:${name}] Storage value:`, value ? 'found' : 'null');
               return value ? JSON.parse(value) : null;
             },
             setItem: async (key: string, value: any) => {
@@ -34,12 +39,12 @@ export const createPersistedStore = <T extends object>(
             },
           },
           onRehydrateStorage: (state) => {
-            console.log(`[createPersistedStore:${name}] Rehydration complete`, state ? 'state restored' : 'no state');
+            debugLog(`[createPersistedStore:${name}] Rehydration complete`, state ? 'state restored' : 'no state');
             return (rehydratedState: any, error) => {
               if (error) {
                 console.error(`[createPersistedStore:${name}] Rehydration error:`, error);
               } else {
-                console.log(`[createPersistedStore:${name}] Rehydration successful`);
+                debugLog(`[createPersistedStore:${name}] Rehydration successful`);
                 // Warm api.ts token cache so the first request after cold-start
                 // has the token without an AsyncStorage round-trip
                 if (name === 'auth-store' && rehydratedState?.accessToken) {

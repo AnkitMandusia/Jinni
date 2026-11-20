@@ -19,6 +19,10 @@ class Settings(BaseSettings):
     # Database
     DATABASE_URL: str
     
+    # CORS: comma-separated origins, or "*" (dev default). Set to the admin/web
+    # origin(s) in production, e.g. https://admin.example.com
+    CORS_ORIGINS: str = "*"
+
     # JWT
     SECRET_KEY: str 
     ALGORITHM: str = "HS256"

@@ -438,6 +438,14 @@ async def _apply_status(
             )
 
     if status_value == "TXN_SUCCESS":
+        # Money captured for an order that was cancelled mid-payment: record the
+        # debt (refund owed) instead of marking a dead order "paid", and never
+        # redeem its coupon.
+        if str(order.status) in ("cancelled", "rejected", "no_store_available"):
+            order.payment_status = PaymentStatus.REFUND_PENDING.value
+            order.payment_id = body.get("txnId") or order.payment_id
+            await db.commit()
+            return status_value
         order.payment_status = PaymentStatus.PAID.value
         order.payment_id = body.get("txnId") or order.payment_id
 
@@ -531,6 +539,12 @@ async def initiate_paytm_payment(
             raise HTTPException(
                 status.HTTP_400_BAD_REQUEST,
                 "Order is not an online payment order",
+            )
+
+        if str(order.status) in ("cancelled", "rejected", "no_store_available"):
+            raise HTTPException(
+                status.HTTP_409_CONFLICT,
+                "This order was cancelled, so it can't be paid.",
             )
 
         if order.payment_status == PaymentStatus.PAID.value:

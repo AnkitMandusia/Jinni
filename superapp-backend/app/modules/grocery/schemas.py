@@ -220,6 +220,49 @@ class CartValidationResponse(BaseModel):
     total: Decimal
 
 
+class CartCheckSubstitute(BaseModel):
+    """In-stock alternative offered for an unavailable cart line."""
+    product_id: str
+    name: str
+    unit: str
+    price: float
+    image_url: Optional[str] = None
+    available: int
+
+
+class CartCheckLine(BaseModel):
+    """Per-line availability verdict used by the OOS / swap bottom sheet.
+
+    status:
+      ok            — requested quantity is available
+      partial       — only `available` (>0) units left; `available` < `requested`
+      out_of_stock  — nothing left (or product inactive/removed)
+    `price_changed` is independent of status: True when the live price differs
+    from the price the client holds, so the customer is never billed a number
+    they did not see.
+    """
+    product_id: str
+    name: str
+    requested: int
+    available: int
+    status: str
+    unit_price: Optional[float] = None
+    price_changed: bool = False
+    substitutes: List[CartCheckSubstitute] = []
+
+
+class CartCheckItem(BaseModel):
+    product_id: UUID
+    quantity: int = Field(..., ge=1, le=99)
+    # Price the client is currently displaying; optional.
+    price: Optional[Decimal] = None
+
+
+class CartCheckResponse(BaseModel):
+    ok: bool
+    lines: List[CartCheckLine]
+
+
 # ============== Featured/Search Schemas ==============
 
 class FeaturedProductsResponse(BaseModel):

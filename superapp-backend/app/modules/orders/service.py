@@ -20,6 +20,15 @@ from app.modules.orders import schemas
 from app.modules.grocery.models import Product
 from app.modules.users.models import User, StoreProfile, RestaurantProfile, DeliveryAgentProfile
 from app.modules.notifications.service import send_push, send_push_multicast
+from app.modules.coupons.service import validate_coupon_for_order, record_cod_redemption
+from app.modules.engagement import service as engagement
+
+# Statuses from which a customer may still cancel: nobody has started preparing
+# or picked up the goods yet, so cancelling costs the store nothing.
+CUSTOMER_CANCELLABLE_STATUSES = frozenset({
+    OrderStatus.PENDING_DISPATCH.value,
+    OrderStatus.STORE_ACCEPTED.value,
+})
 
 
 class OrderService:
@@ -40,6 +49,21 @@ class OrderService:
         order_data: schemas.OrderCreate
     ) -> Order:
         """Create a new order and reserve inventory."""
+        scheduled_for = engagement.normalize_schedule(order_data.scheduled_for)
+
+        # Fail fast, BEFORE reserving any stock, when no open store covers the
+        # delivery pincode. Previously the order was created, stock reserved, and
+        # only then marked NO_STORE_AVAILABLE (with the reservation leaked).
+        if order_data.order_type == OrderType.GROCERY.value:
+            if await OrderService.count_serviceable_stores(db, order_data.delivery_address.pincode) == 0:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=(
+                        f"No open store is delivering to pincode "
+                        f"{order_data.delivery_address.pincode} right now."
+                    ),
+                )
+
         # Validate products and calculate totals
         subtotal = Decimal("0.00")
         order_items_data = []
@@ -76,7 +100,21 @@ class OrderService:
         # Calculate fees
         delivery_fee = Decimal("40.00") if subtotal < Decimal("500.00") else Decimal("0.00")
         tax = subtotal * Decimal("0.05")  # 5% tax
-        total_amount = subtotal + delivery_fee + tax
+
+        # Coupon is validated against the SERVER-computed subtotal so the amount
+        # charged (and sent to Paytm) always equals the discounted bill.
+        coupon = None
+        coupon_code = (order_data.coupon_code or "").strip().upper() or None
+        discount = Decimal("0.00")
+        if coupon_code:
+            coupon, discount = await validate_coupon_for_order(
+                db,
+                code=coupon_code,
+                user_id=customer_id,
+                order_type=order_data.order_type,
+                subtotal=subtotal,
+            )
+        total_amount = max(Decimal("0.00"), subtotal + delivery_fee + tax - discount)
         
         # Create order.
         # NOTE: delivery_otp is intentionally NOT set here anymore. The old flow
@@ -93,6 +131,9 @@ class OrderService:
             subtotal=subtotal,
             delivery_fee=delivery_fee,
             tax=tax,
+            discount=discount,
+            coupon_code=coupon_code,
+            scheduled_for=scheduled_for,
             total_amount=total_amount,
             payment_method=PaymentMethod(order_data.payment_method).value,
             payment_status=PaymentStatus.PENDING.value,
@@ -109,7 +150,22 @@ class OrderService:
         for item_data in order_items_data:
             item = OrderItem(order_id=order.id, **item_data)
             db.add(item)
-        
+
+        # Wallet is paid in full, atomically, in the same transaction as the order
+        # (conditional UPDATE: can't overdraw). COD redeems the coupon now; online
+        # redeems after Paytm confirms (payments_paytm); wallet counts as paid now.
+        if order.payment_method == PaymentMethod.WALLET.value:
+            await engagement.debit(db, customer_id, total_amount, "order_payment",
+                                   order_id=order.id, ref=f"pay:{order.id}")
+            order.payment_status = PaymentStatus.PAID.value
+            if coupon and discount > 0:
+                from app.modules.coupons.router import CouponRedemption
+                db.add(CouponRedemption(coupon_id=coupon.id, user_id=customer_id,
+                                        order_id=order.id, discount_amount=discount))
+                coupon.used_count = (coupon.used_count or 0) + 1
+        else:
+            record_cod_redemption(db, coupon, discount, order, customer_id)
+
         await db.commit()
         await db.refresh(order)
         
@@ -144,6 +200,8 @@ class OrderService:
         if not stores:
             # No stores available - mark order
             order.status = OrderStatus.NO_STORE_AVAILABLE.value
+            await OrderService.release_reserved_stock(db, order)
+            await engagement.refund_wallet_order(db, order)
             await db.commit()
             return
         
@@ -152,8 +210,9 @@ class OrderService:
         if store_tokens:
             await send_push_multicast(
                 fcm_tokens=store_tokens,
-                title="🛒 New Order!",
-                body=f"Order #{order.order_number} - ₹{order.total_amount}",
+                title="🛒 New Order!" if not order.scheduled_for else "🕒 Scheduled Order",
+                body=f"Order #{order.order_number} - ₹{order.total_amount}"
+                + (f" · for {order.scheduled_for:%d %b %H:%M} UTC" if order.scheduled_for else ""),
                 data={
                     "type": "new_order",
                     "order_id": str(order.id),
@@ -162,6 +221,98 @@ class OrderService:
                 }
             )
     
+    @staticmethod
+    async def count_serviceable_stores(db: AsyncSession, pincode: str) -> int:
+        """Open, active grocery stores covering this pincode — the same predicate
+        `_broadcast_to_stores` uses, so "serviceable" means "someone can accept"."""
+        result = await db.execute(
+            select(func.count())
+            .select_from(User)
+            .join(StoreProfile, User.id == StoreProfile.user_id)
+            .where(
+                and_(
+                    User.role == "store",
+                    User.status == "active",
+                    StoreProfile.is_open == True,  # noqa: E712
+                    StoreProfile.pincode == pincode,
+                )
+            )
+        )
+        return int(result.scalar() or 0)
+
+    @staticmethod
+    async def release_reserved_stock(db: AsyncSession, order: Order) -> None:
+        """Give back stock reserved at order creation (cancel / decline / no store).
+
+        Caller commits. Never goes negative. Food items carry no product_id, so
+        they are skipped naturally."""
+        items = (await db.execute(
+            select(OrderItem).where(OrderItem.order_id == order.id)
+        )).scalars().all()
+        for item in items:
+            if not item.product_id:
+                continue
+            product = await db.get(Product, item.product_id)
+            if product:
+                product.reserved_quantity = max(0, (product.reserved_quantity or 0) - item.quantity)
+
+    @staticmethod
+    async def cancel_order_by_customer(
+        db: AsyncSession,
+        order_id: UUID,
+        customer_id: UUID,
+        reason: Optional[str] = None,
+    ) -> Tuple[Order, str]:
+        """Customer cancels their own order before preparation starts.
+
+        Returns (order, refund_status). Idempotent for already-cancelled orders.
+        The row is locked (SELECT ... FOR UPDATE) so a store accepting/advancing
+        the order concurrently can't interleave with the cancel.
+        """
+        order = (await db.execute(
+            select(Order).where(Order.id == order_id).with_for_update()
+        )).scalar_one_or_none()
+        # 404 (not 403) for someone else's order so ids can't be probed.
+        if not order or order.customer_id != customer_id:
+            raise HTTPException(status.HTTP_404_NOT_FOUND, "Order not found")
+
+        current = str(order.status)
+        if current == OrderStatus.CANCELLED.value:
+            return order, OrderService._refund_status(order)
+        if current not in CUSTOMER_CANCELLABLE_STATUSES:
+            raise HTTPException(
+                status.HTTP_409_CONFLICT,
+                "This order can no longer be cancelled — it is already being prepared or delivered.",
+            )
+
+        order.status = OrderStatus.CANCELLED.value
+        order.cancelled_at = datetime.utcnow()
+        order.cancelled_by = customer_id
+        order.cancellation_reason = (reason or "").strip() or "Cancelled by customer"
+
+        await OrderService.release_reserved_stock(db, order)
+        await engagement.refund_wallet_order(db, order)
+
+        # Money already captured online is OWED, not auto-refunded: flag it for
+        # ops/gateway processing rather than pretending a refund happened.
+        if (
+            order.payment_method == PaymentMethod.ONLINE.value
+            and order.payment_status == PaymentStatus.PAID.value
+        ):
+            order.payment_status = PaymentStatus.REFUND_PENDING.value
+
+        await db.commit()
+        await db.refresh(order)
+        return order, OrderService._refund_status(order)
+
+    @staticmethod
+    def _refund_status(order: Order) -> str:
+        if order.payment_status == PaymentStatus.REFUND_PENDING.value:
+            return "pending"
+        if order.payment_status == PaymentStatus.REFUNDED.value:
+            return "refunded"
+        return "not_applicable"
+
     @staticmethod
     async def accept_order_by_store(
         db: AsyncSession,
@@ -276,9 +427,15 @@ class OrderService:
         db: AsyncSession,
         order_id: UUID,
         new_status: str,
-        user_id: UUID
+        user_id: UUID,
+        *,
+        otp_verified: bool = False,
     ) -> Order:
-        """Update order status (accepts plain string values)."""
+        """Update order status (accepts plain string values).
+
+        `otp_verified=True` is passed ONLY by the OTP-verified delivery endpoint,
+        after the hashed OTP check succeeded. Without it "delivered" stays blocked
+        (previously the OTP endpoint itself hit that block and always returned 400)."""
         order = await db.get(Order, order_id, options=[selectinload(Order.items)])
         if not order:
             raise HTTPException(
@@ -302,7 +459,9 @@ class OrderService:
             # ANY order "delivered" directly, bypassing the entire OTP system.
         }
         
-        if new_status_val == "delivered":
+        if otp_verified:
+            valid_transitions = {**valid_transitions, "picked_up": ["in_transit", "delivered"], "in_transit": ["delivered"]}
+        elif new_status_val == "delivered":
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail=(
@@ -329,6 +488,7 @@ class OrderService:
             order.picked_up_at = datetime.utcnow()
         elif new_status_val == "delivered":
             order.delivered_at = datetime.utcnow()
+            await engagement.on_order_delivered(db, order)
             for item in order.items:
                 if item.product_id:
                     product = await db.get(Product, item.product_id)

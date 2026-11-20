@@ -24,6 +24,7 @@ class ManualCompleteRequest(BaseModel):
 @router.get("")
 async def list_orders(
     status: Optional[str] = Query(None),
+    payment_status: Optional[str] = Query(None, description="e.g. refund_pending — orders awaiting a refund"),
     page: int = Query(1, ge=1),
     page_size: int = Query(20, ge=1, le=100),
     db: AsyncSession = Depends(get_db),
@@ -33,6 +34,8 @@ async def list_orders(
     query = select(Order)
     if status:
         query = query.where(Order.status == status)
+    if payment_status:
+        query = query.where(Order.payment_status == payment_status)
 
     total = (await db.execute(select(func.count()).select_from(query.subquery()))).scalar()
     orders = (
@@ -62,6 +65,36 @@ async def list_orders(
         "page": page,
         "page_size": page_size,
     }
+
+
+class MarkRefundedRequest(BaseModel):
+    reference: str = Field(..., min_length=3, max_length=100, description="Gateway refund id / UTR")
+
+
+@router.post("/{order_id}/mark-refunded")
+async def mark_refunded(
+    order_id: UUID,
+    body: MarkRefundedRequest,
+    db: AsyncSession = Depends(get_db),
+    admin: User = Depends(require_role("admin")),
+):
+    """Close out a customer-cancelled online order once the refund has actually
+    been sent (Paytm dashboard / bank). Only valid from `refund_pending` — the
+    cancel flow never claims a refund it did not make."""
+    order = (await db.execute(
+        select(Order).where(Order.id == order_id).with_for_update()
+    )).scalar_one_or_none()
+    if not order:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Order not found")
+    if order.payment_status != "refund_pending":
+        raise HTTPException(
+            status.HTTP_409_CONFLICT,
+            f"Order payment status is '{order.payment_status}', not refund_pending",
+        )
+    order.payment_status = "refunded"
+    order.payment_id = f"{order.payment_id or ''}|refund:{body.reference}"[:100]
+    await db.commit()
+    return {"order_id": str(order.id), "payment_status": order.payment_status}
 
 
 @router.get("/delivery-audit-log")
@@ -189,6 +222,8 @@ async def manual_complete_delivery(
     prev_status = str(order.status)
     order.status = "delivered"
     order.delivered_at = datetime.utcnow()
+    from app.modules.engagement import service as engagement
+    await engagement.on_order_delivered(db, order)
     # Clear any static OTP
     if hasattr(order, "delivery_otp"):
         order.delivery_otp = None

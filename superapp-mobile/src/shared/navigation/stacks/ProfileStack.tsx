@@ -9,6 +9,8 @@ import { SavedAddressesScreen } from '@modules/profile/screens/SavedAddressesScr
 import { HelpSupportScreen } from '@modules/profile/screens/HelpSupportScreen';
 import { SettingsScreen } from '@modules/profile/screens/SettingsScreen';
 import { LegalScreen } from '@modules/profile/screens/LegalScreen';
+import { WalletScreen } from '@modules/profile/screens/WalletScreen';
+import { ShoppingListsScreen } from '@modules/profile/screens/ShoppingListsScreen';
 
 export type ProfileStackParamList = {
   ProfileHome: undefined;
@@ -16,6 +18,8 @@ export type ProfileStackParamList = {
   SavedAddresses: undefined;
   HelpSupport: { reportOrderId?: string } | undefined;
   Settings: undefined;
+  Wallet: undefined;
+  ShoppingLists: undefined;
   Legal: { doc: 'privacy' | 'terms' | 'refund' };
 };
 
@@ -38,6 +42,8 @@ export const ProfileStack: React.FC = () => {
       <Stack.Screen name="SavedAddresses" component={SavedAddressesScreen} options={{ title: 'Saved Addresses' }} />
       <Stack.Screen name="HelpSupport" component={HelpSupportScreen} options={{ title: 'Help & Support' }} />
       <Stack.Screen name="Settings" component={SettingsScreen} options={{ title: 'Settings' }} />
+      <Stack.Screen name="Wallet" component={WalletScreen} options={{ title: 'Wallet & Referral' }} />
+      <Stack.Screen name="ShoppingLists" component={ShoppingListsScreen} options={{ title: 'Shopping Lists' }} />
       <Stack.Screen name="Legal" component={LegalScreen} options={{ title: 'Legal' }} />
     </Stack.Navigator>
   );
