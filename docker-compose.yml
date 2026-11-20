@@ -4,31 +4,19 @@
 #   open http://localhost:8080    (admin + proxied API)
 name: jinni
 
+# Real credentials (Paytm, Firebase API key, R2, SMS, Gemini, JWT secret, ...) are read from
+# superapp-backend/.env — the same file used for local (non-Docker) runs. Only the keys below
+# are forced because they must point at the containers instead of localhost.
 x-api-env: &api-env
   DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-jinni}:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}@db:5432/${POSTGRES_DB:-jinni}
   REDIS_URL: redis://redis:6379/0
-  SECRET_KEY: ${SECRET_KEY:?set SECRET_KEY in .env}
-  DEBUG: ${DEBUG:-false}
-  OTP_DEBUG: ${OTP_DEBUG:-false}
+  FIREBASE_CREDENTIALS_PATH: /run/secrets/firebase-credentials.json   # file goes in ./secrets/
   CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:8080}
-  FIREBASE_CREDENTIALS_PATH: /run/secrets/firebase-credentials.json
-  FIREBASE_API_KEY: ${FIREBASE_API_KEY:-}
-  PAYTM_ENVIRONMENT: ${PAYTM_ENVIRONMENT:-staging}
-  PAYTM_MERCHANT_ID: ${PAYTM_MERCHANT_ID:-}
-  PAYTM_MERCHANT_KEY: ${PAYTM_MERCHANT_KEY:-}
-  PAYTM_WEBSITE_NAME: ${PAYTM_WEBSITE_NAME:-WEBSTAGING}
-  PAYTM_CALLBACK_URL: ${PAYTM_CALLBACK_URL:-}
-  R2_ENDPOINT: ${R2_ENDPOINT:-}
-  R2_ACCESS_KEY: ${R2_ACCESS_KEY:-}
-  R2_SECRET_KEY: ${R2_SECRET_KEY:-}
-  R2_CDN_BASE_URL: ${R2_CDN_BASE_URL:-}
-  GEMINI_API_KEY: ${GEMINI_API_KEY:-}
-  SMS_PROVIDER: ${SMS_PROVIDER:-console}
-  MSG91_AUTH_KEY: ${MSG91_AUTH_KEY:-}
-  MSG91_TEMPLATE_ID: ${MSG91_TEMPLATE_ID:-}
-  WABA_TOKEN: ${WABA_TOKEN:-}
-  WABA_PHONE_ID: ${WABA_PHONE_ID:-}
-  META_APP_SECRET: ${META_APP_SECRET:-}
+  DEBUG: ${DEBUG:-false}
+
+x-api-envfile: &api-envfile
+  - path: ./superapp-backend/.env
+    required: true
 
 services:
   db:
@@ -63,6 +51,7 @@ services:
   migrate:
     build: ./superapp-backend
     image: jinni-api
+    env_file: *api-envfile
     environment: *api-env
     command: ["alembic", "upgrade", "head"]
     depends_on:
@@ -73,6 +62,7 @@ services:
     build: ./superapp-backend
     image: jinni-api
     restart: unless-stopped
+    env_file: *api-envfile
     environment: *api-env
     volumes:
       - ./secrets:/run/secrets:ro
