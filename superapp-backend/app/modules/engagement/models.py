@@ -10,7 +10,7 @@ from decimal import Decimal
 from uuid import uuid4
 
 from sqlalchemy import (
-    CheckConstraint, Column, DateTime, ForeignKey, Index, Integer, Numeric, String, UniqueConstraint,
+    Boolean, CheckConstraint, Column, DateTime, ForeignKey, Index, Integer, Numeric, String, UniqueConstraint,
 )
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
@@ -74,3 +74,24 @@ class ShoppingListItem(Base):
     product_id = Column(UUID(as_uuid=True), ForeignKey("products.id", ondelete="CASCADE"), nullable=False)
     quantity = Column(Integer, nullable=False, default=1)
     __table_args__ = (UniqueConstraint("list_id", "product_id", name="uq_list_product"),)
+
+
+class Campaign(Base):
+    """Admin-managed, time-boxed home banner (Diwali, Holi, local-market-day offers…).
+
+    Replaces hard-coded seasonal UI (Zepto IPL/Rakhi, Zomato Easter): ops can run
+    a festival offer without an app release."""
+    __tablename__ = "campaigns"
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid4)
+    eyebrow = Column(String(40), nullable=False, default="OFFER")
+    title = Column(String(80), nullable=False)
+    subtitle = Column(String(120), nullable=True)
+    image_url = Column(String(500), nullable=True)
+    target = Column(String(20), nullable=False, default="none")  # food|grocery|cab|salon|jinni|none
+    coupon_code = Column(String(40), nullable=True)
+    priority = Column(Integer, nullable=False, default=0)  # higher = earlier
+    starts_at = Column(DateTime, nullable=False)
+    ends_at = Column(DateTime, nullable=False)
+    is_active = Column(Boolean, nullable=False, default=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    __table_args__ = (Index("idx_campaign_active_window", "is_active", "starts_at", "ends_at"),)

@@ -43,6 +43,13 @@ Migration: `0016_wallet_referral_lists_schedule.py` (**run `alembic upgrade head
 ### Known limitation
 Scheduled orders are still broadcast to stores immediately (the push says "Scheduled order · for <time>"); there is no delay-until-due dispatcher yet — that needs a Celery/cron job. Wallet top-up via Paytm is also not built (wallet is funded by rewards/refunds/admin credit only).
 
+## Third pass — scoped to a single small city (2–3 lakh people)
+
+- **Festival campaigns — built** (cheap, high effect for local offers): admin-managed, time-boxed home banners (`campaigns` table, migration 0017, `GET /campaigns/active` public, admin CRUD). Shown first in the home hero carousel, optional coupon code, deep-links to Food/Grocery/Cab/Salon/Jinni. Run a Diwali/Holi offer without an app release.
+- **Group ordering — skipped on purpose:** needs multi-user live carts; low value in a small city.
+- **Pharmacy — skipped on purpose:** selling medicines needs a drug licence + prescription verification; a legal/compliance project, not a feature.
+- **Trade-in, gift cards, EMI — skipped** (out of scope for the city/stage).
+
 ## Deliberately NOT done
 
 - **Group ordering, gift cards, EMI/BNPL, scratch cards** — large separate products; research ranks them P2/"table stakes only for some". Say the word and each gets its own PR.

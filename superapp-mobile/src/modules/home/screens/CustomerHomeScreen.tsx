@@ -31,6 +31,7 @@ import {
   ServiceCategoryConfig,
   TryJinniNudgeCard,
 } from '@modules/home/components';
+import { fetchActiveCampaigns, Campaign } from '@services/home.service';
 import { useJinniSession } from '@modules/jinni/hooks/useJinniSession';
 
 // "Try Jinni" nudge (spec section 4.3) is shown only the first few times
@@ -54,6 +55,13 @@ export const CustomerHomeScreen: React.FC = () => {
   const [locationModalVisible, setLocationModalVisible] = useState(false);
   const [pincodeDraft, setPincodeDraft] = useState(pincode);
   const [showJinniNudge, setShowJinniNudge] = useState(false);
+  const [campaigns, setCampaigns] = useState<Campaign[]>([]);
+
+  useEffect(() => {
+    let alive = true;
+    fetchActiveCampaigns().then((c) => { if (alive) setCampaigns(c); });
+    return () => { alive = false; };
+  }, []);
   const { open: openJinni, wishes } = useJinniSession();
 
   const isPincodeSet = pincode.length === 6;
@@ -110,7 +118,7 @@ export const CustomerHomeScreen: React.FC = () => {
     Alert.alert('Search', 'Universal search is coming soon.');
   }, []);
 
-  const heroSlides: HeroSlide[] = useMemo(
+  const baseSlides: HeroSlide[] = useMemo(
     () => [
       {
         id: 'food',
@@ -146,6 +154,30 @@ export const CustomerHomeScreen: React.FC = () => {
       },
     ],
     [navigation, requirePincode, openJinni]
+  );
+
+  const heroSlides: HeroSlide[] = useMemo(
+    () => {
+      const fallbackImage = (t: Campaign['target']) =>
+        t === 'cab' ? homeAssets.heroRide : t === 'grocery' ? homeAssets.heroStores : t === 'jinni' ? homeAssets.heroJinni : homeAssets.heroFood;
+      const go = (t: Campaign['target']) => {
+        if (t === 'food') requirePincode(() => navigation.navigate('Food'));
+        else if (t === 'grocery') requirePincode(() => navigation.navigate('Grocery'));
+        else if (t === 'cab') requirePincode(() => navigation.navigate('Cab'));
+        else if (t === 'salon') requirePincode(() => navigation.navigate('Salon'));
+        else if (t === 'jinni') openJinni('homeNudge');
+      };
+      const campaignSlides: HeroSlide[] = campaigns.map((c) => ({
+        id: `campaign-${c.id}`,
+        image: c.image_url ? { uri: c.image_url } : fallbackImage(c.target),
+        eyebrow: c.eyebrow,
+        title: c.title,
+        subtitle: c.coupon_code ? `Use code ${c.coupon_code}` : c.subtitle || '',
+        onPress: c.target === 'none' ? undefined : () => go(c.target),
+      }));
+      return [...campaignSlides, ...baseSlides];
+    },
+    [campaigns, baseSlides, navigation, requirePincode, openJinni]
   );
 
   const categories: ServiceCategoryConfig[] = useMemo(

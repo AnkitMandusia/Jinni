@@ -1,0 +1,47 @@
+# Production overlay: HTTPS via Caddy (automatic Let's Encrypt) + nightly DB backups.
+#   docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build
+# Requires DOMAIN and ACME_EMAIL in .env, and DNS A record -> this server, ports 80/443 open.
+services:
+  api:
+    ports: !reset []        # not reachable except through the proxy
+  admin:
+    ports: !reset []
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    depends_on: [admin]
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      DOMAIN: ${DOMAIN:?set DOMAIN in .env}
+      ACME_EMAIL: ${ACME_EMAIL:?set ACME_EMAIL in .env}
+    volumes:
+      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+  backup:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    depends_on:
+      db: { condition: service_healthy }
+    environment:
+      PGHOST: db
+      PGUSER: ${POSTGRES_USER:-jinni}
+      PGPASSWORD: ${POSTGRES_PASSWORD}
+      PGDATABASE: ${POSTGRES_DB:-jinni}
+    volumes:
+      - ./backups:/backups
+    # Daily custom-format dump, keep 14 days. Restore: pg_restore -d <db> <file>
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        while true; do
+          f=/backups/jinni-$$(date +%F).dump
+          pg_dump -Fc -f "$$f" && echo "backup ok: $$f" || echo "backup FAILED"
+          find /backups -name 'jinni-*.dump' -mtime +14 -delete
+          sleep 86400
+        done
+volumes:
+  caddy_data:
+  caddy_config:

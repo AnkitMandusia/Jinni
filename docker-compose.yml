@@ -1,0 +1,95 @@
+# Jinni — full stack: Postgres, Redis, DB migrations, API, admin web.
+#   cp .env.docker.example .env   # fill in
+#   docker compose up -d --build
+#   open http://localhost:8080    (admin + proxied API)
+name: jinni
+
+x-api-env: &api-env
+  DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-jinni}:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}@db:5432/${POSTGRES_DB:-jinni}
+  REDIS_URL: redis://redis:6379/0
+  SECRET_KEY: ${SECRET_KEY:?set SECRET_KEY in .env}
+  DEBUG: ${DEBUG:-false}
+  OTP_DEBUG: ${OTP_DEBUG:-false}
+  CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:8080}
+  FIREBASE_CREDENTIALS_PATH: /run/secrets/firebase-credentials.json
+  FIREBASE_API_KEY: ${FIREBASE_API_KEY:-}
+  PAYTM_ENVIRONMENT: ${PAYTM_ENVIRONMENT:-staging}
+  PAYTM_MERCHANT_ID: ${PAYTM_MERCHANT_ID:-}
+  PAYTM_MERCHANT_KEY: ${PAYTM_MERCHANT_KEY:-}
+  PAYTM_WEBSITE_NAME: ${PAYTM_WEBSITE_NAME:-WEBSTAGING}
+  PAYTM_CALLBACK_URL: ${PAYTM_CALLBACK_URL:-}
+  R2_ENDPOINT: ${R2_ENDPOINT:-}
+  R2_ACCESS_KEY: ${R2_ACCESS_KEY:-}
+  R2_SECRET_KEY: ${R2_SECRET_KEY:-}
+  R2_CDN_BASE_URL: ${R2_CDN_BASE_URL:-}
+  GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+  SMS_PROVIDER: ${SMS_PROVIDER:-console}
+  MSG91_AUTH_KEY: ${MSG91_AUTH_KEY:-}
+  MSG91_TEMPLATE_ID: ${MSG91_TEMPLATE_ID:-}
+  WABA_TOKEN: ${WABA_TOKEN:-}
+  WABA_PHONE_ID: ${WABA_PHONE_ID:-}
+  META_APP_SECRET: ${META_APP_SECRET:-}
+
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-jinni}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
+      POSTGRES_DB: ${POSTGRES_DB:-jinni}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-jinni} -d ${POSTGRES_DB:-jinni}"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    # AOF so rate-limit/OTP state survives a restart; bounded memory.
+    command: ["redis-server", "--appendonly", "yes", "--maxmemory", "128mb", "--maxmemory-policy", "noeviction"]
+    volumes:
+      - redisdata:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  # One-shot: applies Alembic migrations, then exits. api waits for it to succeed.
+  migrate:
+    build: ./superapp-backend
+    image: jinni-api
+    environment: *api-env
+    command: ["alembic", "upgrade", "head"]
+    depends_on:
+      db: { condition: service_healthy }
+    restart: "no"
+
+  api:
+    build: ./superapp-backend
+    image: jinni-api
+    restart: unless-stopped
+    environment: *api-env
+    volumes:
+      - ./secrets:/run/secrets:ro
+    depends_on:
+      migrate: { condition: service_completed_successfully }
+      redis: { condition: service_healthy }
+    ports:
+      - "127.0.0.1:8000:8000"   # direct API access from the host only
+
+  admin:
+    build: ./superapp-admin
+    restart: unless-stopped
+    depends_on:
+      api: { condition: service_healthy }
+    ports:
+      - "8080:80"
+
+volumes:
+  pgdata:
+  redisdata:
