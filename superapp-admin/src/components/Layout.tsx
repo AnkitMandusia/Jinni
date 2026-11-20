@@ -1,138 +1,67 @@
 import React, { useState } from 'react';
-import { Layout, Menu, Avatar, Dropdown, Typography, Badge, Space } from 'antd';
-import {
-  DashboardOutlined,
-  UserOutlined,
-  ShoppingOutlined,
-  CarOutlined,
-  LogoutOutlined,
-  MenuFoldOutlined,
-  MenuUnfoldOutlined,
-  BellOutlined,
-} from '@ant-design/icons';
+import { Layout, Menu, Avatar, Dropdown, Typography, Space, Drawer, Button } from 'antd';
+import { DashboardOutlined, UserOutlined, ShoppingOutlined, CarOutlined, LogoutOutlined, MenuFoldOutlined, MenuUnfoldOutlined, AppstoreOutlined, SettingOutlined, MenuOutlined, HomeOutlined } from '@ant-design/icons';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuthStore } from '../store/authStore';
-
 const { Header, Sider, Content } = Layout;
 const { Text } = Typography;
-
-interface AppLayoutProps {
-  children: React.ReactNode;
-}
-
-const menuItems = [
-  { key: '/', icon: <DashboardOutlined />, label: 'Dashboard' },
-  { key: '/users', icon: <UserOutlined />, label: 'Users' },
-  { key: '/orders', icon: <ShoppingOutlined />, label: 'Orders' },
-  { key: '/delivery', icon: <CarOutlined />, label: 'Delivery Agents' },
-];
+interface AppLayoutProps { children: React.ReactNode; }
 
 export const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
   const [collapsed, setCollapsed] = useState(false);
+  const [mobileOpen, setMobileOpen] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
   const { user, logout } = useAuthStore();
-
-  const userMenuItems = [
-    {
-      key: 'logout',
-      icon: <LogoutOutlined />,
-      label: 'Logout',
-      danger: true,
-      onClick: () => {
-        logout();
-        navigate('/login');
-      },
-    },
+  const role = (user?.role || '').toLowerCase();
+  const restaurant = role.includes('restaurant');
+  const partner = restaurant || role === 'store' || role.includes('grocery');
+  const base = restaurant ? '/restaurant' : '/store';
+  const title = restaurant ? 'Restaurant Partner' : partner ? 'Grocery Store' : 'Super Admin';
+  const menuItems = partner ? [
+    { key: base, icon: <DashboardOutlined />, label: 'Dashboard' },
+    { key: base + '/orders', icon: <ShoppingOutlined />, label: 'Orders' },
+    { key: base + '/catalog', icon: <AppstoreOutlined />, label: restaurant ? 'Menu & Categories' : 'Products & Stock' },
+    { key: base + '/profile', icon: <SettingOutlined />, label: 'Business Profile' },
+  ] : [
+    { key: '/admin', icon: <DashboardOutlined />, label: 'Dashboard' },
+    { key: '/users', icon: <UserOutlined />, label: 'Users & Partners' },
+    { key: '/orders', icon: <ShoppingOutlined />, label: 'All Orders' },
+    { key: '/delivery', icon: <CarOutlined />, label: 'Delivery Agents' },
   ];
+  const selected = menuItems.find(item => location.pathname === item.key || location.pathname.startsWith(item.key + '/'))?.key || (partner ? base : '/admin');
+  const go = (key: string) => { navigate(key); setMobileOpen(false); };
+  const navMenu = <Menu theme="dark" mode="inline" selectedKeys={[selected]} items={menuItems} onClick={({ key }) => go(key)} style={{ marginTop: 10, background: 'transparent', border: 0 }} />;
+  const userMenuItems = [{ key: 'logout', icon: <LogoutOutlined />, label: 'Logout', danger: true, onClick: async () => { await logout(); navigate('/login', { replace: true }); } }];
 
-  return (
-    <Layout style={{ minHeight: '100vh' }}>
-      <Sider
-        collapsible
-        collapsed={collapsed}
-        trigger={null}
-        width={220}
-        style={{
-          background: '#001529',
-          boxShadow: '2px 0 8px rgba(0,0,0,0.15)',
-        }}
-      >
-        <div style={{
-          height: 64,
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: collapsed ? 'center' : 'flex-start',
-          padding: collapsed ? 0 : '0 24px',
-          borderBottom: '1px solid rgba(255,255,255,0.08)',
-        }}>
-          <span style={{ fontSize: 20, color: '#fff' }}>🚀</span>
-          {!collapsed && (
-            <Text style={{ color: '#fff', fontWeight: 700, fontSize: 16, marginLeft: 10 }}>
-              SuperApp Admin
-            </Text>
-          )}
+  return <Layout className="portal-layout" style={{ minHeight: '100vh' }}>
+    <Sider className="portal-sider desktop-sider" collapsible collapsed={collapsed} trigger={null} breakpoint="lg" onBreakpoint={broken => setCollapsed(broken)} width={244} style={{ background: '#101828', boxShadow: '2px 0 12px rgba(0,0,0,.12)' }}>
+      <div className="portal-brand">
+        <span className="portal-brand-mark">j</span>
+        {!collapsed && <span>jinni<span style={{ color: '#A5B4FC' }}>.</span><small>{title}</small></span>}
+      </div>
+      {navMenu}
+      {!collapsed && <div className="portal-sider-foot">Food · Grocery · Local business</div>}
+    </Sider>
+    <Drawer className="portal-mobile-drawer" title={<span className="portal-brand-inline"><span className="portal-brand-mark">j</span> Jinni · {title}</span>} placement="left" open={mobileOpen} onClose={() => setMobileOpen(false)} width={280} styles={{ body: { background: '#101828', padding: '8px 0' } }}>
+      {navMenu}
+    </Drawer>
+    <Layout>
+      <Header className="portal-header">
+        <div className="portal-header-left">
+          <Button className="desktop-collapse" type="text" aria-label="Toggle navigation" onClick={() => setCollapsed(!collapsed)} icon={collapsed ? <MenuUnfoldOutlined /> : <MenuFoldOutlined />} />
+          <Button className="mobile-nav-trigger" type="text" aria-label="Open navigation" onClick={() => setMobileOpen(true)} icon={<MenuOutlined />} />
+          <div className="portal-breadcrumb"><HomeOutlined /> <span>{title}</span></div>
         </div>
-
-        <Menu
-          theme="dark"
-          mode="inline"
-          selectedKeys={[location.pathname]}
-          items={menuItems}
-          onClick={({ key }) => navigate(key)}
-          style={{ marginTop: 8, border: 'none' }}
-        />
-      </Sider>
-
-      <Layout>
-        <Header style={{
-          background: '#fff',
-          padding: '0 24px',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          boxShadow: '0 1px 4px rgba(0,0,0,0.08)',
-          height: 64,
-        }}>
-          <button
-            onClick={() => setCollapsed(!collapsed)}
-            style={{
-              background: 'none',
-              border: 'none',
-              fontSize: 18,
-              cursor: 'pointer',
-              color: '#374151',
-              padding: '4px 8px',
-              borderRadius: 6,
-            }}
-          >
-            {collapsed ? <MenuUnfoldOutlined /> : <MenuFoldOutlined />}
-          </button>
-
-          <Space size="middle">
-            <Badge count={0} showZero={false}>
-              <BellOutlined style={{ fontSize: 18, color: '#6B7280', cursor: 'pointer' }} />
-            </Badge>
-            <Dropdown menu={{ items: userMenuItems }} placement="bottomRight">
-              <Space style={{ cursor: 'pointer' }}>
-                <Avatar
-                  size={32}
-                  style={{ backgroundColor: '#6366F1', fontWeight: 700 }}
-                >
-                  {user?.name?.[0]?.toUpperCase() ?? 'A'}
-                </Avatar>
-                <Text style={{ fontWeight: 600, color: '#374151' }}>{user?.name ?? 'Admin'}</Text>
-              </Space>
-            </Dropdown>
+        <Dropdown menu={{ items: userMenuItems }} placement="bottomRight">
+          <Space className="portal-user-menu" style={{ cursor: 'pointer' }}>
+            <Avatar size={34} style={{ background: '#4F46E5', fontWeight: 700 }}>{user?.name?.[0]?.toUpperCase() ?? 'J'}</Avatar>
+            <span className="portal-user-copy"><Text strong>{user?.name || user?.email || title}</Text><small>{user?.email || user?.phone}</small></span>
           </Space>
-        </Header>
-
-        <Content style={{ margin: '24px', minHeight: 'calc(100vh - 112px)' }}>
-          {children}
-        </Content>
-      </Layout>
+        </Dropdown>
+      </Header>
+      <Content className="portal-content">{children}</Content>
     </Layout>
-  );
+  </Layout>;
 };
-
 export default AppLayout;

@@ -47,6 +47,7 @@ export interface OrderListParams {
 export const getOrders = (params: OrderListParams = {}) =>
   apiClient.get('/admin/orders', { params });
 
+
 // ── Grocery catalogue (admin / store permissions enforced by the API) ────────
 export interface ProductListParams {
   category_id?: string;

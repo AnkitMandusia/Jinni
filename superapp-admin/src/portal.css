@@ -1,0 +1,60 @@
+.app-loading{min-height:100vh;display:grid;place-items:center;background:#f8fafc}
+.portal-header{background:#fff;padding:0 clamp(14px,2.5vw,28px);display:flex;align-items:center;justify-content:space-between;box-shadow:0 1px 4px rgba(0,0,0,.06);height:68px;position:sticky;top:0;z-index:5}
+.portal-header-left{display:flex;align-items:center;gap:14px}
+.portal-breadcrumb{display:flex;align-items:center;gap:9px;color:#667085;font-size:13px;font-weight:600}
+.portal-user-copy{display:flex;flex-direction:column;line-height:1.25}
+.portal-user-copy small{font-size:10px;color:#98A2B3}
+.portal-brand{height:76px;display:flex;align-items:center;gap:12px;padding:0 22px;color:#fff;font:800 22px Manrope,Arial,sans-serif;letter-spacing:-1px;border-bottom:1px solid rgba(255,255,255,.08)}
+.portal-brand small{display:block;color:#A5B4FC;font:500 10px Arial,sans-serif;letter-spacing:.04em;margin-top:3px}
+.portal-brand-mark{width:36px;height:36px;border-radius:12px 12px 12px 4px;background:#d9ef73;color:#20241d;display:grid;place-items:center;font:800 26px Arial,sans-serif;flex-shrink:0}
+.portal-brand-inline{display:flex;align-items:center;gap:10px;font-weight:700}
+.portal-sider-foot{position:absolute;bottom:20px;left:22px;right:15px;color:#667085;font-size:10px}
+.portal-content{margin:clamp(12px,2.2vw,28px);min-height:calc(100vh - 124px)}
+.mobile-nav-trigger,.portal-mobile-drawer{display:none!important}
+@media(max-width:767px){
+  .desktop-sider,.desktop-collapse{display:none!important}
+  .mobile-nav-trigger{display:inline-flex!important}
+  .portal-mobile-drawer{display:block!important}
+  .portal-header{height:60px;padding:0 12px}
+  .portal-user-copy{display:none}
+  .portal-content{margin:12px 10px 24px}
+}
+
+.partner-page{max-width:1500px;margin:0 auto}
+.partner-page-head{display:flex;align-items:flex-end;justify-content:space-between;gap:16px;flex-wrap:wrap;margin-bottom:22px}
+.partner-page-head h2{margin:8px 0 2px!important;font-weight:750;letter-spacing:-.8px}
+.section-kicker{font-size:10px;letter-spacing:.15em;font-weight:800;color:#81876f}
+.portal-card{border-radius:16px!important;border:1px solid #edf0f4!important;box-shadow:0 5px 22px rgba(16,24,40,.035);margin-top:16px}
+.portal-card .ant-card-head{min-height:54px}
+.stat-card{height:100%;border-radius:16px!important;border:1px solid #edf0f4!important;box-shadow:0 5px 22px rgba(16,24,40,.035)}
+.stat-card .ant-statistic-title{font-size:12px;color:#667085}
+.stat-card .ant-statistic-content{font-size:clamp(19px,2.5vw,27px);font-weight:750}
+.availability-card .ant-card-body{padding:18px 22px}
+.availability-row{display:flex;align-items:center;justify-content:space-between;gap:20px}
+.category-list{display:grid;grid-template-columns:1fr;gap:14px}
+.category-card{border-radius:12px!important;background:#fcfcfd}
+.setup-page{max-width:1000px;margin:24px auto}
+.setup-card{border-radius:20px!important;padding:12px;border:1px solid #edf0f4;box-shadow:0 12px 40px rgba(16,24,40,.06)}
+.setup-card h2{margin:8px 0 4px!important;letter-spacing:-.8px}
+.location-button-col{display:flex;align-items:center;padding-top:5px}
+.portal-loading{min-height:45vh;display:grid;place-items:center}
+.mobile-product-list{display:none}
+@media(max-width:767px){
+ .partner-page-head{align-items:center;margin-bottom:14px}
+ .partner-page-head h2{font-size:24px!important}
+ .portal-card{margin-top:12px}
+ .portal-card .ant-card-body{padding:14px}
+ .portal-card .ant-card-head{padding:0 14px}
+ .portal-card .ant-card-extra{padding:8px 0}
+ .category-card .ant-card-body{padding:8px}
+ .availability-card .ant-card-body{padding:14px}
+ .mobile-product-list{display:grid;gap:10px}
+ .mobile-product-card{border-radius:12px!important}
+ .mobile-product-row{display:flex;align-items:center;justify-content:space-between;gap:14px;margin-bottom:10px}
+ .mobile-product-row>div{min-width:0}
+ .mobile-product-row .ant-typography{display:block;overflow-wrap:anywhere}
+ .desktop-product-table{display:none!important}
+ .setup-page{margin:10px auto}
+ .setup-card{padding:0}
+ .location-button-col{padding:0 8px 20px}
+}
