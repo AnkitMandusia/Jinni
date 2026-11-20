@@ -417,6 +417,90 @@ class CartService:
         )
 
 
+MAX_SUBSTITUTES = 3
+
+
+def classify_cart_line(product: Optional[Product], requested: int) -> tuple[str, int]:
+    """Pure availability verdict for one cart line -> (status, available_units)."""
+    if product is None or not product.is_active:
+        return "out_of_stock", 0
+    available = max(0, (product.stock_quantity or 0) - (product.reserved_quantity or 0))
+    if available <= 0:
+        return "out_of_stock", 0
+    if available < requested:
+        return "partial", available
+    return "ok", available
+
+
+def rank_substitutes(unavailable: Product, candidates: List[Product]) -> List[Product]:
+    """Order candidate alternatives: same brand first, then closest price, then name.
+
+    Candidates must already be in-stock, active, same category and not the
+    unavailable product itself (the DB query guarantees that)."""
+    target_price = float(unavailable.price)
+    brand = (unavailable.brand or "").strip().lower()
+
+    def key(c: Product):
+        same_brand = 0 if brand and (c.brand or "").strip().lower() == brand else 1
+        return (same_brand, abs(float(c.price) - target_price), c.name)
+
+    return sorted(candidates, key=key)[:MAX_SUBSTITUTES]
+
+
+async def check_cart(db: AsyncSession, items: List[schemas.CartCheckItem]) -> schemas.CartCheckResponse:
+    """Structured availability check with swap suggestions (Zepto SWAP_AND_SAVE /
+    Zomato CartOosRecommendation pattern). Read-only: reserves nothing."""
+    lines: List[schemas.CartCheckLine] = []
+    cart_ids = {i.product_id for i in items}
+
+    for item in items:
+        product = await ProductService.get_product_by_id(db, item.product_id)
+        verdict, available = classify_cart_line(product, item.quantity)
+
+        price_changed = bool(
+            product is not None
+            and item.price is not None
+            and Decimal(str(item.price)) != Decimal(str(product.price))
+        )
+
+        substitutes: List[schemas.CartCheckSubstitute] = []
+        if product is not None and verdict != "ok":
+            result = await db.execute(
+                select(Product).where(
+                    Product.category_id == product.category_id,
+                    Product.is_active == True,  # noqa: E712
+                    Product.id != product.id,
+                    Product.id.notin_(cart_ids),
+                    Product.stock_quantity > func.coalesce(Product.reserved_quantity, 0),
+                ).limit(30)
+            )
+            for sub in rank_substitutes(product, list(result.scalars().all())):
+                substitutes.append(schemas.CartCheckSubstitute(
+                    product_id=str(sub.id),
+                    name=sub.name,
+                    unit=sub.unit,
+                    price=float(sub.price),
+                    image_url=sub.primary_image_url,
+                    available=sub.available_stock,
+                ))
+
+        lines.append(schemas.CartCheckLine(
+            product_id=str(item.product_id),
+            name=product.name if product else "Item no longer available",
+            requested=item.quantity,
+            available=available,
+            status=verdict,
+            unit_price=float(product.price) if product else None,
+            price_changed=price_changed,
+            substitutes=substitutes,
+        ))
+
+    return schemas.CartCheckResponse(
+        ok=all(l.status == "ok" and not l.price_changed for l in lines),
+        lines=lines,
+    )
+
+
 # Instantiate services
 category_service = CategoryService()
 product_service = ProductService()

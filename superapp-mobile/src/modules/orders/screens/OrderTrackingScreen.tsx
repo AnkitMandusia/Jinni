@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, Linking, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Alert, Linking, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useRoute, RouteProp, useIsFocused } from '@react-navigation/native';
@@ -26,6 +26,9 @@ type Tracking = {
 
 const TRACK_ORDER = ['pending_dispatch', 'store_accepted', 'preparing', 'ready_for_pickup', 'delivery_assigned', 'picked_up', 'in_transit', 'delivered'];
 const ACTIVE = new Set(['pending_dispatch', 'store_accepted', 'preparing', 'ready_for_pickup', 'delivery_assigned', 'picked_up', 'in_transit']);
+// Mirrors CUSTOMER_CANCELLABLE_STATUSES on the backend: once the store starts
+// preparing, cancelling would waste real work, so the option goes away.
+const CANCELLABLE = new Set(['pending_dispatch', 'store_accepted']);
 const TERMINAL = new Set(['delivered', 'cancelled', 'no_store_available', 'failed']);
 
 const journeyForStatus = (status?: string): { stage: MagicJourneyStage; label: string } => {
@@ -52,6 +55,8 @@ export const OrderTrackingScreen: React.FC = () => {
   const [refreshing, setRefreshing] = useState(false);
   const [ratingDraft, setRatingDraft] = useState(0);
   const [submittingRating, setSubmittingRating] = useState(false);
+  const [reviewDraft, setReviewDraft] = useState('');
+  const [cancelling, setCancelling] = useState(false);
 
   const load = useCallback(async (silent = false) => {
     try {
@@ -90,20 +95,48 @@ export const OrderTrackingScreen: React.FC = () => {
   const journey = journeyForStatus(tracking?.status);
   const completedStages = useMemo(() => Math.max(0, TRACK_ORDER.indexOf(tracking?.status || 'pending_dispatch')), [tracking?.status]);
 
-  const submitRating = async (stars: number) => {
-    if (submittingRating) return;
-    setRatingDraft(stars);
+  // Stars only select; nothing is sent until the customer taps Submit, so a
+  // mis-tap doesn't lock in a rating (the backend accepts one rating per order).
+  const submitRating = async () => {
+    if (submittingRating || ratingDraft < 1) return;
     setSubmittingRating(true);
     try {
-      await api.post(`/orders/${orderId}/rating`, { rating: stars });
-      setTracking((t) => (t ? { ...t, customer_rating: stars } : t));
+      await api.post(`/orders/${orderId}/rating`, {
+        rating: ratingDraft,
+        review: reviewDraft.trim() || undefined,
+      });
+      setTracking((t) => (t ? { ...t, customer_rating: ratingDraft } : t));
     } catch (e: any) {
-      setRatingDraft(0);
-      console.warn('Rating error', e?.response?.data || e?.message);
+      Alert.alert('Could not submit rating', e?.response?.data?.detail || 'Please try again.');
     } finally {
       setSubmittingRating(false);
     }
   };
+
+  const doCancel = async () => {
+    setCancelling(true);
+    try {
+      const res: any = await api.post(`/orders/${orderId}/cancel`, {});
+      await load(true);
+      Alert.alert('Order cancelled', res?.message || 'Your order has been cancelled.');
+    } catch (e: any) {
+      const detail = e?.response?.data?.detail;
+      Alert.alert('Cannot cancel', typeof detail === 'string' ? detail : 'Please try again.');
+      void load(true); // status may have moved on (e.g. store started preparing)
+    } finally {
+      setCancelling(false);
+    }
+  };
+
+  const confirmCancel = () =>
+    Alert.alert(
+      'Cancel this order?',
+      'You can cancel until the store starts preparing it.',
+      [
+        { text: 'Keep order', style: 'cancel' },
+        { text: 'Cancel order', style: 'destructive', onPress: () => void doCancel() },
+      ],
+    );
 
   const statusText = tracking?.status === 'in_transit' || tracking?.status === 'picked_up'
     ? 'Your rider is on the way'
@@ -175,10 +208,26 @@ export const OrderTrackingScreen: React.FC = () => {
                 <>
                   <Text style={styles.rateTitle}>How was your order?</Text>
                   <View style={styles.starsRow}>{[1, 2, 3, 4, 5].map((n) => (
-                    <TouchableOpacity key={n} onPress={() => submitRating(n)} disabled={submittingRating} hitSlop={6}>
+                    <TouchableOpacity key={n} onPress={() => setRatingDraft(n)} disabled={submittingRating} hitSlop={6}>
                       <Ionicons name={n <= ratingDraft ? 'star' : 'star-outline'} size={30} color={n <= ratingDraft ? colors.warning.DEFAULT : colors.gray[300]} />
                     </TouchableOpacity>
                   ))}</View>
+                  {ratingDraft > 0 && (
+                    <>
+                      <TextInput
+                        style={styles.reviewInput}
+                        placeholder="Tell us more (optional)"
+                        placeholderTextColor={colors.gray[400]}
+                        value={reviewDraft}
+                        onChangeText={setReviewDraft}
+                        maxLength={500}
+                        multiline
+                      />
+                      <TouchableOpacity style={[styles.submitRateBtn, { backgroundColor: accent }]} onPress={submitRating} disabled={submittingRating}>
+                        {submittingRating ? <ActivityIndicator color={colors.white} size="small" /> : <Text style={styles.submitRateText}>Submit</Text>}
+                      </TouchableOpacity>
+                    </>
+                  )}
                 </>
               )}
             </View>
@@ -203,6 +252,14 @@ export const OrderTrackingScreen: React.FC = () => {
               </View>;
             })}
           </View>
+
+          {tracking && CANCELLABLE.has(tracking.status) && (
+            <TouchableOpacity style={styles.cancelBtn} onPress={confirmCancel} disabled={cancelling}>
+              {cancelling
+                ? <ActivityIndicator color={colors.error.DEFAULT} size="small" />
+                : <><Ionicons name="close-circle-outline" size={17} color={colors.error.DEFAULT} /><Text style={styles.cancelText}>Cancel order</Text></>}
+            </TouchableOpacity>
+          )}
 
           <TouchableOpacity style={styles.refreshBtn} onPress={() => { setRefreshing(true); void load(); }} disabled={refreshing}>
             {refreshing ? <ActivityIndicator color={accent} size="small" /> : <><Ionicons name="refresh" size={17} color={accent} /><Text style={[styles.refreshText, { color: accent }]}>Refresh status</Text></>}
@@ -244,6 +301,11 @@ const styles = StyleSheet.create({
   timelineLine: { width: 2, flex: 1, backgroundColor: colors.gray[200], marginVertical: 2 },
   timelineText: { ...typography.caption, color: colors.gray[400], marginLeft: 8, paddingTop: 0 },
   timelineTextDone: { color: colors.gray[800], fontFamily: typography.label.fontFamily },
+  reviewInput: { alignSelf: 'stretch', marginTop: spacing.sm, minHeight: 64, borderWidth: 1, borderColor: colors.gray[200], borderRadius: borderRadius.md, backgroundColor: colors.white, padding: spacing.sm, textAlignVertical: 'top', fontFamily: fontFamily.regular, color: colors.gray[900] },
+  submitRateBtn: { alignSelf: 'stretch', marginTop: spacing.sm, alignItems: 'center', paddingVertical: 10, borderRadius: borderRadius.md },
+  submitRateText: { color: colors.white, fontFamily: fontFamily.bold },
+  cancelBtn: { alignSelf: 'flex-start', flexDirection: 'row', alignItems: 'center', gap: 7, marginTop: spacing.md, paddingVertical: 7 },
+  cancelText: { ...typography.label, color: colors.error.DEFAULT },
   refreshBtn: { alignSelf: 'flex-start', flexDirection: 'row', alignItems: 'center', gap: 7, marginTop: spacing.md, marginBottom: spacing.md, paddingVertical: 7 },
   refreshText: { ...typography.label },
 });

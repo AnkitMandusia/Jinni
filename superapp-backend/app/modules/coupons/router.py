@@ -80,59 +80,23 @@ class CouponCreate(BaseModel):
     expires_at: Optional[datetime] = None
 
 
-def _calc_discount(c: Coupon, subtotal: Decimal) -> Decimal:
-    if c.discount_type == "percent":
-        d = (subtotal * c.discount_value / Decimal("100")).quantize(Decimal("0.01"))
-        if c.max_discount is not None:
-            d = min(d, c.max_discount)
-    else:
-        d = min(c.discount_value, subtotal)
-    return max(Decimal("0"), d)
-
-
 @router.post("/validate", response_model=ValidateResponse)
 async def validate_coupon(
     body: ValidateRequest,
     user: User = Depends(get_current_active_user),
     db: AsyncSession = Depends(get_db),
 ):
-    code = body.code.strip().upper()
-    c = (await db.execute(select(Coupon).where(Coupon.code == code))).scalar_one_or_none()
-    if not c or not c.is_active:
-        raise HTTPException(400, "Invalid coupon")
-    now = datetime.utcnow()
-    if c.starts_at and now < c.starts_at:
-        raise HTTPException(400, "Coupon not started yet")
-    if c.expires_at and now > c.expires_at:
-        raise HTTPException(400, "Coupon expired")
-    if c.applies_to not in ("all", body.order_type):
-        raise HTTPException(400, "Coupon not valid for this order type")
-    if body.subtotal < c.min_order_amount:
-        raise HTTPException(400, f"Minimum order ₹{c.min_order_amount}")
-    if c.max_uses_total is not None and c.used_count >= c.max_uses_total:
-        raise HTTPException(400, "Coupon fully redeemed")
+    # Imported lazily: service imports Coupon/CouponRedemption from this module.
+    from app.modules.coupons.service import validate_coupon_for_order
 
-    user_uses = (await db.execute(
-        select(func.count()).select_from(CouponRedemption).where(
-            CouponRedemption.coupon_id == c.id, CouponRedemption.user_id == user.id
-        )
-    )).scalar() or 0
-    if user_uses >= c.max_uses_per_user:
-        raise HTTPException(400, "You already used this coupon")
-
-    if c.coupon_kind == "first_order":
-        prior = (await db.execute(
-            select(func.count()).select_from(Order).where(Order.customer_id == user.id)
-        )).scalar() or 0
-        if prior > 0:
-            raise HTTPException(400, "First-order coupon only")
-
-    discount = _calc_discount(c, body.subtotal)
+    coupon, discount = await validate_coupon_for_order(
+        db, code=body.code, user_id=user.id, order_type=body.order_type, subtotal=body.subtotal,
+    )
     return ValidateResponse(
         valid=True,
         discount_amount=discount,
         message=f"₹{discount} off applied",
-        code=c.code,
+        code=coupon.code,
     )
 
 

@@ -42,6 +42,25 @@ interface NearbyRestaurantsResponse {
  * Home-tab data access. Kept separate from screen components so the UI never
  * talks to axios/endpoints directly (API -> service -> hook -> UI).
  */
+export interface Campaign {
+  id: string;
+  eyebrow: string;
+  title: string;
+  subtitle?: string | null;
+  image_url?: string | null;
+  target: 'food' | 'grocery' | 'cab' | 'salon' | 'jinni' | 'none';
+  coupon_code?: string | null;
+}
+
+/** Admin-managed festival / offer banners (best effort — home must work without them). */
+export const fetchActiveCampaigns = async (): Promise<Campaign[]> => {
+  try {
+    return await api.get<Campaign[]>('/campaigns/active');
+  } catch {
+    return [];
+  }
+};
+
 export const homeService = {
   /** Local/grocery stores serving a pincode. GET /grocery/stores?pincode= */
   async getNearbyStores(pincode: string): Promise<NearbyStoresResponse> {

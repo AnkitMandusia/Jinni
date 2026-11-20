@@ -14,6 +14,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { FoodStackParamList } from '@navigation/stacks/FoodStack';
 import { AppButton } from '@components/AppButton';
+import { CheckoutExtras } from '@components/CheckoutExtras';
 import { formatPrice } from '@utils/helpers';
 import { api } from '@services/api';
 import { useCartStore } from '@modules/cart/store/cartStore';
@@ -73,7 +74,8 @@ export const CheckoutScreen: React.FC = () => {
   const [latitude, setLatitude] = useState<number | undefined>();
   const [longitude, setLongitude] = useState<number | undefined>();
   const [notes, setNotes] = useState('');
-  const [payment, setPayment] = useState<'cod' | 'online'>('cod');
+  const [payment, setPayment] = useState<'cod' | 'online' | 'wallet'>('cod');
+  const [scheduledFor, setScheduledFor] = useState<string | null>(null);
   const [coupon, setCoupon] = useState('');
   const [couponDiscount, setCouponDiscount] = useState(0);
   const [couponMsg, setCouponMsg] = useState('');
@@ -216,7 +218,8 @@ export const CheckoutScreen: React.FC = () => {
           latitude: latitude != null && Number.isFinite(Number(latitude)) ? Number(latitude) : null,
           longitude: longitude != null && Number.isFinite(Number(longitude)) ? Number(longitude) : null,
         },
-        payment_method: payment, // 'cod' | 'online' — matches backend pattern
+        payment_method: payment, // 'cod' | 'online' | 'wallet' — matches backend pattern
+        scheduled_for: scheduledFor,
         notes: notes.trim() || null,
         coupon_code: coupon.trim() ? coupon.trim().toUpperCase() : null,
       });
@@ -406,6 +409,15 @@ export const CheckoutScreen: React.FC = () => {
           <Text style={styles.hint}>Online payments are verified securely before your order is confirmed.</Text>
         </View>
 
+        <CheckoutExtras
+          payment={payment}
+          setPayment={setPayment}
+          total={total}
+          accent={FOOD}
+          scheduledFor={scheduledFor}
+          setScheduledFor={setScheduledFor}
+        />
+
         {/* Coupon */}
         <SectionTitle icon="pricetag-outline" label="Coupon" />
         <View style={styles.couponRow}>
@@ -500,7 +512,9 @@ export const CheckoutScreen: React.FC = () => {
               ? 'Placing order…'
               : payment === 'cod'
                 ? `Place COD · ${formatPrice(total)}`
-                : `Pay online · ${formatPrice(total)}`
+                : payment === 'wallet'
+                  ? `Pay with wallet · ${formatPrice(total)}`
+                  : `Pay online · ${formatPrice(total)}`
           }
           onPress={handlePlaceOrder}
           size="large"
