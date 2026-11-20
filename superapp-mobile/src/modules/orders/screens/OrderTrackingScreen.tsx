@@ -2,29 +2,15 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, Linking, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { useRoute, RouteProp } from '@react-navigation/native';
+import { useRoute, RouteProp, useIsFocused } from '@react-navigation/native';
 import { OrderStatusBadge } from '@components/OrderStatusBadge';
 import { JinniSparkleAccent } from '@components/JinniSparkleAccent';
-import { JinniETAFlight, estimateEtaMinutes, haversineKm } from '@modules/jinni/components/JinniETAFlight';
+import { JinniMagicJourney, MagicJourneyStage } from '@modules/jinni/components/JinniMagicJourney';
 import { colors } from '@theme/colors';
 import { spacing, borderRadius } from '@theme/spacing';
 import { typography, fontFamily } from '@theme/typography';
 import { api } from '@services/api';
 import { useOrderRealtime } from '@shared/hooks/useOrderRealtime';
-
-/**
- * Shared order-detail / tracking screen, used by both the Food and Grocery
- * stacks and from the Orders tab (OrdersStack -> OrderTracking). `moduleType`
- * (route param, defaults to 'food') only decides the accent colour and the
- * pickup-point label ("Restaurant" vs "Store").
- *
- * No live map here on purpose — react-native-maps + GPS polling was the
- * costly part of this screen (a maps SDK render plus a location ping every
- * few seconds, for every open tracking screen). Instead this shows a
- * distance-derived ETA (see JinniETAFlight) and a Zomato/Blinkit-style rider
- * card with name, phone and rating. The 5s status poll stays — that's just
- * our own `/orders/{id}/tracking` call, not a maps bill.
- */
 
 type OrderTrackingParams = { orderId: string; moduleType?: 'food' | 'grocery' };
 
@@ -34,44 +20,48 @@ type Tracking = {
   status: string;
   delivery_address: any;
   pickup_address: any;
-  destination: { latitude?: number; longitude?: number };
-  pickup?: { latitude?: number; longitude?: number };
   customer_rating?: number | null;
-  rider?: {
-    name?: string; phone?: string; rating?: number; vehicle_type?: string;
-    latitude?: number; longitude?: number; updated_at?: string;
-  } | null;
+  rider?: { name?: string; phone?: string; rating?: number; vehicle_type?: string } | null;
 };
 
 const TRACK_ORDER = ['pending_dispatch', 'store_accepted', 'preparing', 'ready_for_pickup', 'delivery_assigned', 'picked_up', 'in_transit', 'delivered'];
-const ACTIVE = new Set(['delivery_assigned', 'picked_up', 'in_transit']);
+const ACTIVE = new Set(['pending_dispatch', 'store_accepted', 'preparing', 'ready_for_pickup', 'delivery_assigned', 'picked_up', 'in_transit']);
+const TERMINAL = new Set(['delivered', 'cancelled', 'no_store_available', 'failed']);
 
-const coords = (lat?: number | null, lng?: number | null) =>
-  lat != null && lng != null && Number.isFinite(Number(lat)) && Number.isFinite(Number(lng))
-    ? { latitude: Number(lat), longitude: Number(lng) }
-    : null;
+const journeyForStatus = (status?: string): { stage: MagicJourneyStage; label: string } => {
+  switch (status) {
+    case 'delivery_assigned': return { stage: 'takeoff', label: 'Your delivery partner is assigned' };
+    case 'picked_up':
+    case 'in_transit': return { stage: 'journey', label: 'Your order is on the way' };
+    case 'delivered': return { stage: 'arrived', label: 'Delivered successfully' };
+    case 'cancelled':
+    case 'failed':
+    case 'no_store_available': return { stage: 'idle', label: 'This order is no longer active' };
+    default: return { stage: 'idle', label: 'Your order is being prepared' };
+  }
+};
 
 export const OrderTrackingScreen: React.FC = () => {
   const route = useRoute<RouteProp<Record<string, OrderTrackingParams>, string>>();
+  const isFocused = useIsFocused();
   const { orderId, moduleType = 'food' } = route.params;
   const accent = moduleType === 'grocery' ? colors.grocery.primary : colors.food.primary;
   const pickupLabel = moduleType === 'grocery' ? 'Store' : 'Restaurant';
-  const pickupIcon = moduleType === 'grocery' ? 'storefront' : 'restaurant';
   const [tracking, setTracking] = useState<Tracking | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [nowTick, setNowTick] = useState(Date.now());
-  const [firstLoadedAt] = useState(() => Date.now());
   const [ratingDraft, setRatingDraft] = useState(0);
   const [submittingRating, setSubmittingRating] = useState(false);
 
   const load = useCallback(async (silent = false) => {
     try {
       if (!silent) setLoading(true);
+      // This endpoint still returns rider GPS fields for other clients, but this
+      // screen does not read them. Refresh slowly as a status-only safety net.
       const data = await api.get<Tracking>(`/orders/${orderId}/tracking`);
       setTracking(data);
     } catch (e: any) {
-      console.warn('Tracking error', e?.response?.data || e?.message);
+      console.warn('Order detail refresh failed', e?.response?.data || e?.message);
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -79,43 +69,26 @@ export const OrderTrackingScreen: React.FC = () => {
   }, [orderId]);
 
   useEffect(() => {
-    load();
-    const timer = setInterval(() => load(true), 5000);
-    const clock = setInterval(() => setNowTick(Date.now()), 30000);
-    return () => { clearInterval(timer); clearInterval(clock); };
-  }, [load]);
+    if (!isFocused) return;
+    void load();
+    // Status fallback only (not live GPS); WebSocket events refresh immediately.
+    // Terminal orders stop polling entirely.
+    const timer = setInterval(() => {
+      if (!TERMINAL.has(tracking?.status || '')) void load(true);
+    }, 60000);
+    return () => clearInterval(timer);
+  }, [isFocused, load, tracking?.status]);
 
-  // Realtime push: refetch immediately on a status change instead of
-  // waiting for the next 5s poll tick. The 5s poll stays as-is — it's the
-  // safety net for missed/delayed socket messages (reconnects, dropped
-  // connections) per requirement 8 ("never rely exclusively on ... a
-  // socket event").
-  useOrderRealtime(() => load(true), orderId);
+  useOrderRealtime((event) => {
+    // The realtime channel is a cue to fetch authoritative state, not proof itself.
+    if (event.event === 'order.status_updated' || event.event === 'order.delivery_status_updated') {
+      void load(true);
+    }
+  }, orderId);
 
-  const destination = coords(tracking?.destination?.latitude, tracking?.destination?.longitude);
-  const pickupPoint = coords(tracking?.pickup?.latitude, tracking?.pickup?.longitude);
-
-  const distanceKm = useMemo(
-    () => haversineKm(pickupPoint, destination),
-    [pickupPoint?.latitude, pickupPoint?.longitude, destination?.latitude, destination?.longitude]
-  );
-  const etaMinutes = useMemo(() => estimateEtaMinutes(distanceKm), [distanceKm]);
-
-  const elapsedMinutes = Math.floor((nowTick - firstLoadedAt) / 60000);
   const isDelivered = tracking?.status === 'delivered';
-  const remainingMinutes = isDelivered ? 0 : Math.max(2, etaMinutes - elapsedMinutes);
-
-  // Journey progress for the carpet visual: how far through the known
-  // status stages we are, nudged forward a little using elapsed vs. ETA so
-  // it isn't perfectly stair-stepped between statuses.
-  const progress = useMemo(() => {
-    const current = TRACK_ORDER.indexOf(tracking?.status || 'pending_dispatch');
-    const stageProgress = Math.max(0, current) / (TRACK_ORDER.length - 1);
-    const timeProgress = Math.min(1, elapsedMinutes / Math.max(etaMinutes, 1));
-    return ACTIVE.has(tracking?.status || '')
-      ? Math.max(stageProgress, Math.min(0.95, timeProgress))
-      : stageProgress;
-  }, [tracking?.status, elapsedMinutes, etaMinutes]);
+  const journey = journeyForStatus(tracking?.status);
+  const completedStages = useMemo(() => Math.max(0, TRACK_ORDER.indexOf(tracking?.status || 'pending_dispatch')), [tracking?.status]);
 
   const submitRating = async (stars: number) => {
     if (submittingRating) return;
@@ -138,9 +111,11 @@ export const OrderTrackingScreen: React.FC = () => {
       ? `Rider assigned — heading to the ${pickupLabel.toLowerCase()}`
       : tracking?.status === 'delivered'
         ? 'Delivered successfully'
-        : moduleType === 'grocery'
-          ? 'Your store is packing your order'
-          : 'We are preparing your order';
+        : tracking?.status === 'cancelled' || tracking?.status === 'no_store_available' || tracking?.status === 'failed'
+          ? 'This order is no longer active'
+          : moduleType === 'grocery'
+            ? 'Your store is packing your order'
+            : 'We are preparing your order';
 
   if (loading && !tracking) {
     return <SafeAreaView style={styles.container}><ActivityIndicator size="large" color={accent} style={{ marginTop: 80 }} /></SafeAreaView>;
@@ -157,27 +132,19 @@ export const OrderTrackingScreen: React.FC = () => {
       </View>
 
       <ScrollView contentContainerStyle={styles.scrollBody} showsVerticalScrollIndicator={false}>
-        {/* ETA hero — replaces the old live map */}
         <View style={[styles.etaHero, { backgroundColor: accent + '0F' }]}>
           <View style={styles.etaHeroTop}>
             <JinniSparkleAccent size={22} />
-            <Text style={[styles.etaBig, { color: accent }]}>
-              {isDelivered ? 'Delivered' : `${remainingMinutes} min`}
-            </Text>
+            <Text style={[styles.etaBig, { color: accent }]}>{isDelivered ? 'Delivered' : 'Order journey'}</Text>
           </View>
           <Text style={styles.etaSub}>
-            {isDelivered
-              ? 'Thanks for ordering locally.'
-              : ACTIVE.has(tracking?.status || '')
-                ? `Estimated arrival, with a little Jinni magic`
-                : `${pickupLabel} is getting your order ready`}
+            {isDelivered ? 'Thanks for ordering locally.' : 'Updates follow confirmed order status. This is not live GPS.'}
           </Text>
-          <JinniETAFlight progress={progress} accent={accent} pickupIcon={pickupIcon as any} pickupLabel={pickupLabel} />
         </View>
+        <JinniMagicJourney stage={journey.stage} accent={accent} pickupLabel={pickupLabel} statusLabel={journey.label} />
 
         <View style={styles.sheet}>
           <Text style={styles.statusTitle}>{statusText}</Text>
-
           {tracking?.rider ? (
             <View style={styles.riderCard}>
               <View style={styles.avatar}><Ionicons name="bicycle" size={20} color={accent} /></View>
@@ -185,17 +152,12 @@ export const OrderTrackingScreen: React.FC = () => {
                 <Text style={styles.riderName}>{tracking.rider.name || 'Delivery partner'}</Text>
                 <View style={styles.riderMetaRow}>
                   <Ionicons name="star" size={12} color={colors.warning.DEFAULT} />
-                  <Text style={styles.riderMeta}>{(tracking.rider.rating ?? 4.8).toFixed(1)}</Text>
-                  {tracking.rider.vehicle_type ? (
-                    <Text style={styles.riderMeta}>· {tracking.rider.vehicle_type}</Text>
-                  ) : null}
+                  <Text style={styles.riderMeta}>{tracking.rider.rating != null ? tracking.rider.rating.toFixed(1) : 'Rating unavailable'}</Text>
+                  {tracking.rider.vehicle_type ? <Text style={styles.riderMeta}>· {tracking.rider.vehicle_type}</Text> : null}
                 </View>
               </View>
               {tracking.rider.phone ? (
-                <TouchableOpacity
-                  style={[styles.callBtn, { backgroundColor: accent + '14' }]}
-                  onPress={() => tracking.rider?.phone && Linking.openURL(`tel:${tracking.rider.phone}`)}
-                >
+                <TouchableOpacity style={[styles.callBtn, { backgroundColor: accent + '14' }]} onPress={() => tracking.rider?.phone && Linking.openURL(`tel:${tracking.rider.phone}`)}>
                   <Ionicons name="call" size={18} color={accent} />
                 </TouchableOpacity>
               ) : null}
@@ -207,46 +169,31 @@ export const OrderTrackingScreen: React.FC = () => {
               {tracking?.customer_rating ? (
                 <View style={styles.rateDoneRow}>
                   <Ionicons name="checkmark-circle" size={16} color={colors.success.DEFAULT} />
-                  <Text style={styles.rateDoneText}>
-                    You rated this order {tracking.customer_rating} star{tracking.customer_rating > 1 ? 's' : ''} — thanks!
-                  </Text>
+                  <Text style={styles.rateDoneText}>You rated this order {tracking.customer_rating} star{tracking.customer_rating > 1 ? 's' : ''} — thanks!</Text>
                 </View>
               ) : (
                 <>
                   <Text style={styles.rateTitle}>How was your order?</Text>
-                  <View style={styles.starsRow}>
-                    {[1, 2, 3, 4, 5].map((n) => (
-                      <TouchableOpacity key={n} onPress={() => submitRating(n)} disabled={submittingRating} hitSlop={6}>
-                        <Ionicons
-                          name={n <= ratingDraft ? 'star' : 'star-outline'}
-                          size={30}
-                          color={n <= ratingDraft ? colors.warning.DEFAULT : colors.gray[300]}
-                        />
-                      </TouchableOpacity>
-                    ))}
-                  </View>
+                  <View style={styles.starsRow}>{[1, 2, 3, 4, 5].map((n) => (
+                    <TouchableOpacity key={n} onPress={() => submitRating(n)} disabled={submittingRating} hitSlop={6}>
+                      <Ionicons name={n <= ratingDraft ? 'star' : 'star-outline'} size={30} color={n <= ratingDraft ? colors.warning.DEFAULT : colors.gray[300]} />
+                    </TouchableOpacity>
+                  ))}</View>
                 </>
               )}
             </View>
           ) : null}
 
           <View style={styles.timeline}>
-            {['pending_dispatch', 'store_accepted', 'preparing', 'ready_for_pickup', 'delivery_assigned', 'picked_up', 'delivered'].map((s, index, all) => {
-              const current = TRACK_ORDER.indexOf(tracking?.status || 'pending_dispatch');
-              const done = TRACK_ORDER.indexOf(s) <= current;
-              const label = s === 'pending_dispatch'
-                ? 'Order placed'
-                : s === 'store_accepted'
-                  ? `${pickupLabel} accepted`
-                  : s === 'preparing'
-                    ? (moduleType === 'grocery' ? 'Packing your order' : 'Preparing your food')
-                    : s === 'ready_for_pickup'
-                      ? 'Ready for pickup'
-                      : s === 'delivery_assigned'
-                        ? 'Rider assigned'
-                        : s === 'picked_up'
-                          ? 'Picked up'
-                          : 'Delivered';
+            {['pending_dispatch', 'store_accepted', 'preparing', 'ready_for_pickup', 'delivery_assigned', 'picked_up', 'in_transit', 'delivered'].map((s, index, all) => {
+              const done = TRACK_ORDER.indexOf(s) <= completedStages;
+              const label = s === 'pending_dispatch' ? 'Order placed'
+                : s === 'store_accepted' ? `${pickupLabel} accepted`
+                : s === 'preparing' ? (moduleType === 'grocery' ? 'Packing your order' : 'Preparing your food')
+                : s === 'ready_for_pickup' ? 'Ready for pickup'
+                : s === 'delivery_assigned' ? 'Rider assigned'
+                : s === 'picked_up' ? 'Picked up'
+                : s === 'in_transit' ? 'On the way' : 'Delivered';
               return <View key={s} style={styles.timelineRow}>
                 <View style={styles.timelineRail}>
                   <View style={[styles.timelineDot, done && { backgroundColor: accent, borderColor: accent }]}>{done && <Ionicons name="checkmark" size={10} color={colors.white} />}</View>
@@ -257,8 +204,8 @@ export const OrderTrackingScreen: React.FC = () => {
             })}
           </View>
 
-          <TouchableOpacity style={styles.refreshBtn} onPress={() => { setRefreshing(true); load(); }} disabled={refreshing}>
-            {refreshing ? <ActivityIndicator color={accent} size="small" /> : <><Ionicons name="refresh" size={17} color={accent} /><Text style={[styles.refreshText, { color: accent }]}>Refresh</Text></>}
+          <TouchableOpacity style={styles.refreshBtn} onPress={() => { setRefreshing(true); void load(); }} disabled={refreshing}>
+            {refreshing ? <ActivityIndicator color={accent} size="small" /> : <><Ionicons name="refresh" size={17} color={accent} /><Text style={[styles.refreshText, { color: accent }]}>Refresh status</Text></>}
           </TouchableOpacity>
         </View>
       </ScrollView>
@@ -275,7 +222,7 @@ const styles = StyleSheet.create({
   etaHero: { paddingTop: spacing.md, paddingBottom: spacing.sm, borderBottomLeftRadius: 22, borderBottomRightRadius: 22 },
   etaHeroTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: spacing.sm, paddingHorizontal: spacing.lg },
   etaBig: { ...typography.h2, fontFamily: fontFamily.bold },
-  etaSub: { ...typography.body2, color: colors.gray[500], textAlign: 'center', marginTop: 2 },
+  etaSub: { ...typography.body2, color: colors.gray[500], textAlign: 'center', marginTop: 2, paddingHorizontal: spacing.lg },
   sheet: { paddingHorizontal: spacing.lg, paddingTop: spacing.lg },
   statusTitle: { ...typography.h5, color: colors.gray[900] },
   riderCard: { flexDirection: 'row', alignItems: 'center', padding: spacing.md, marginTop: spacing.md, borderWidth: 1, borderColor: colors.gray[100], borderRadius: borderRadius.md, backgroundColor: colors.surface.sunken },
