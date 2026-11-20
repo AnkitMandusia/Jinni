@@ -3,9 +3,9 @@ import logging
 from typing import Optional
 from uuid import UUID
 
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, status
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import selectinload
 from redis.asyncio import Redis
 
@@ -14,6 +14,7 @@ from app.dependencies import get_current_active_user, get_redis
 from app.modules.users.models import User, StoreProfile
 from app.modules.orders import schemas
 from app.modules.orders.service import OrderService
+from app.modules.engagement import service as engagement
 
 logger = logging.getLogger(__name__)
 from app.modules.orders.models import OrderStatus, Order
@@ -73,6 +74,90 @@ async def create_order(
         accepted_at=order.accepted_at,
         delivered_at=order.delivered_at,
         notes=order.notes
+    )
+
+
+@router.get("/serviceability", response_model=schemas.ServiceabilityResponse)
+async def check_serviceability(
+    pincode: str = Query(..., min_length=6, max_length=6, pattern=r"^\d{6}$"),
+    order_type: str = Query("grocery", pattern="^(grocery|food)$"),
+    user: User = Depends(get_current_active_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """[Customer] Can anyone deliver to this pincode right now?
+
+    Jinni broadcasts grocery orders to open stores (race-to-accept) instead of
+    pre-assigning a dark store, so "serviceable" means "at least one open store
+    covers this pincode" — the same predicate the broadcast uses. Lets the app
+    warn at address-select instead of failing at Place Order. Food is decided
+    per restaurant at checkout (distance/pincode), so for food this only reports
+    whether any restaurant is open nearby.
+    """
+    if order_type == "grocery":
+        count = await OrderService.count_serviceable_stores(db, pincode)
+    else:
+        from app.modules.food.models import Restaurant
+        count = int((await db.execute(
+            select(func.count()).select_from(Restaurant).where(
+                Restaurant.pincode == pincode,
+                Restaurant.is_active == True,  # noqa: E712
+                Restaurant.is_open == True,  # noqa: E712
+                Restaurant.is_accepting_orders == True,  # noqa: E712
+            )
+        )).scalar() or 0)
+    ok = count > 0
+    return schemas.ServiceabilityResponse(
+        serviceable=ok,
+        pincode=pincode,
+        order_type=order_type,
+        available_count=count,
+        message=(
+            "Delivering to this address"
+            if ok
+            else "We are not delivering to this pincode right now. Try another address."
+        ),
+    )
+
+
+@router.post("/{order_id}/cancel", response_model=schemas.CancelOrderResponse)
+async def cancel_order(
+    order_id: UUID,
+    body: schemas.CancelOrderRequest,
+    user: User = Depends(get_current_active_user),
+    db: AsyncSession = Depends(get_db),
+    redis: Redis = Depends(get_redis),
+):
+    """[Customer] Cancel own order until the store starts preparing it."""
+    if user.role != "customer":
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "Only customers can cancel their orders")
+
+    order, refund_status = await OrderService.cancel_order_by_customer(
+        db, order_id, user.id, body.reason
+    )
+
+    try:
+        from app.realtime.manager import emit_order_event_cluster_safe
+        await emit_order_event_cluster_safe(
+            redis,
+            "order.status_updated",
+            order_id=str(order.id),
+            customer_id=order.customer_id,
+            delivery_agent_id=order.delivery_agent_id,
+            store_id=order.store_id,
+            data={"status": str(order.status)},
+        )
+    except Exception:
+        logger.exception("Realtime emit failed for cancelled order=%s", order.id)
+
+    return schemas.CancelOrderResponse(
+        order_id=order.id,
+        status=str(order.status),
+        refund_status=refund_status,
+        message=(
+            "Order cancelled. Your payment will be refunded to the original method."
+            if refund_status == "pending"
+            else "Order cancelled."
+        ),
     )
 
 
@@ -263,6 +348,9 @@ async def decline_order(
 
     order.status = "cancelled"
     order.notes = request.reason
+    # Declined orders must give their reserved stock back (previously leaked).
+    await OrderService.release_reserved_stock(db, order)
+    await engagement.refund_wallet_order(db, order)
     await db.commit()
 
     # Notify the customer
@@ -476,7 +564,7 @@ async def verify_delivery_otp_endpoint(
             detail=verification.get("reason", "Invalid or expired OTP"),
         )
 
-    order = await OrderService.update_order_status(db, order_id, "delivered", user.id)
+    order = await OrderService.update_order_status(db, order_id, "delivered", user.id, otp_verified=True)
 
     # Best-effort push to customer
     try:

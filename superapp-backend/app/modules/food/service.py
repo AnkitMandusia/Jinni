@@ -14,6 +14,8 @@ from app.modules.food.models import (
 )
 from app.modules.food import schemas
 from app.modules.coupons.router import Coupon, CouponRedemption
+from app.modules.coupons.service import validate_coupon_for_order, record_cod_redemption
+from app.modules.engagement import service as engagement
 from app.modules.orders.models import (
     Order, OrderItem, OrderType, OrderStatus, PaymentMethod, PaymentStatus,
 )
@@ -458,6 +460,7 @@ class FoodOrderService:
         if not restaurant.is_open or not restaurant.is_accepting_orders:
             raise HTTPException(status.HTTP_400_BAD_REQUEST, "Restaurant is not accepting orders")
         _assert_deliverable(restaurant, data.delivery_address)
+        scheduled_for = engagement.normalize_schedule(data.scheduled_for)
         subtotal = Decimal("0.00")
         order_items_data = []
         for line in data.items:
@@ -493,36 +496,9 @@ class FoodOrderService:
         coupon_code = (data.coupon_code or "").strip().upper() or None
         coupon = None
         if coupon_code:
-            coupon = (await db.execute(select(Coupon).where(Coupon.code == coupon_code))).scalar_one_or_none()
-            if not coupon or not coupon.is_active:
-                raise HTTPException(status.HTTP_400_BAD_REQUEST, "Invalid coupon")
-            now = datetime.utcnow()
-            if coupon.starts_at and now < coupon.starts_at:
-                raise HTTPException(status.HTTP_400_BAD_REQUEST, "Coupon not started yet")
-            if coupon.expires_at and now > coupon.expires_at:
-                raise HTTPException(status.HTTP_400_BAD_REQUEST, "Coupon expired")
-            if coupon.applies_to not in ("all", "food"):
-                raise HTTPException(status.HTTP_400_BAD_REQUEST, "Coupon not valid for food orders")
-            if subtotal < coupon.min_order_amount:
-                raise HTTPException(status.HTTP_400_BAD_REQUEST, f"Minimum order ₹{coupon.min_order_amount}")
-            if coupon.max_uses_total is not None and coupon.used_count >= coupon.max_uses_total:
-                raise HTTPException(status.HTTP_400_BAD_REQUEST, "Coupon fully redeemed")
-            user_uses = (await db.execute(select(func.count()).select_from(CouponRedemption).where(
-                CouponRedemption.coupon_id == coupon.id, CouponRedemption.user_id == customer.id
-            ))).scalar() or 0
-            if user_uses >= coupon.max_uses_per_user:
-                raise HTTPException(status.HTTP_400_BAD_REQUEST, "You already used this coupon")
-            if coupon.coupon_kind == "first_order":
-                prior = (await db.execute(select(func.count()).select_from(Order).where(Order.customer_id == customer.id))).scalar() or 0
-                if prior > 0:
-                    raise HTTPException(status.HTTP_400_BAD_REQUEST, "First-order coupon only")
-            if coupon.discount_type == "percent":
-                coupon_discount = (subtotal * coupon.discount_value / Decimal("100")).quantize(Decimal("0.01"))
-                if coupon.max_discount is not None:
-                    coupon_discount = min(coupon_discount, coupon.max_discount)
-            else:
-                coupon_discount = min(coupon.discount_value, subtotal)
-            coupon_discount = max(Decimal("0.00"), coupon_discount)
+            coupon, coupon_discount = await validate_coupon_for_order(
+                db, code=coupon_code, user_id=customer.id, order_type="food", subtotal=subtotal,
+            )
 
         total = max(Decimal("0.00"), subtotal + delivery_fee + packaging + tax - coupon_discount)
         order = Order(
@@ -534,7 +510,7 @@ class FoodOrderService:
             # being leaked back in the order-details API response.
             subtotal=subtotal, delivery_fee=delivery_fee, tax=tax, discount=coupon_discount,
             total_amount=total, payment_method=PaymentMethod(data.payment_method).value,
-            coupon_code=coupon_code,
+            coupon_code=coupon_code, scheduled_for=scheduled_for,
             payment_status=PaymentStatus.PENDING.value,
             delivery_address=data.delivery_address.model_dump(),
             delivery_pincode=data.delivery_address.pincode,
@@ -547,9 +523,15 @@ class FoodOrderService:
                 product_sku=None, unit_price=oi["unit_price"], quantity=oi["quantity"], subtotal=oi["subtotal"]))
         cart = await cart_service.get_or_create_cart(db, customer.id)
         cart.items = []; cart.restaurant_id = None
-        if coupon and coupon_discount > 0 and order.payment_method == PaymentMethod.COD.value:
-            db.add(CouponRedemption(coupon_id=coupon.id, user_id=customer.id, order_id=order.id, discount_amount=coupon_discount))
-            coupon.used_count = (coupon.used_count or 0) + 1
+        if order.payment_method == PaymentMethod.WALLET.value:
+            # Atomic, same transaction as the order: can't overdraw, can't half-apply.
+            await engagement.debit(db, customer.id, total, "order_payment", order_id=order.id, ref=f"pay:{order.id}")
+            order.payment_status = PaymentStatus.PAID.value
+            if coupon and coupon_discount > 0:
+                db.add(CouponRedemption(coupon_id=coupon.id, user_id=customer.id, order_id=order.id, discount_amount=coupon_discount))
+                coupon.used_count = (coupon.used_count or 0) + 1
+        else:
+            record_cod_redemption(db, coupon, coupon_discount, order, customer.id)
         await db.commit(); await db.refresh(order)
         result = await db.execute(select(Order).where(Order.id == order.id).options(selectinload(Order.items)))
         return result.scalar_one()
@@ -584,6 +566,8 @@ class FoodOrderService:
             raise HTTPException(status.HTTP_400_BAD_REQUEST, f"Cannot transition from '{order.status}' to '{new_status}'")
         order.status = new_status
         if new_status == OrderStatus.STORE_ACCEPTED.value: order.accepted_at = datetime.utcnow()
+        if new_status in (OrderStatus.REJECTED.value, OrderStatus.CANCELLED.value):
+            await engagement.refund_wallet_order(db, order)
         await db.commit(); await db.refresh(order); return order
 
     async def dashboard_stats(self, db, owner):

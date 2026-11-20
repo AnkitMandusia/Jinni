@@ -43,6 +43,11 @@ class OrderCreate(BaseModel):
     delivery_address: DeliveryAddressCreate
     payment_method: str = Field(default="cod", pattern="^(cod|online|wallet)$")
     notes: Optional[str] = None
+    # Re-validated server-side in OrderService.create_order; the discount shown
+    # by the client is a preview only.
+    coupon_code: Optional[str] = Field(None, max_length=40)
+    # Optional delivery slot (validated in engagement.service.normalize_schedule).
+    scheduled_for: Optional[datetime] = None
 
 
 class OrderResponse(BaseModel):
@@ -78,6 +83,7 @@ class OrderResponse(BaseModel):
     
     notes: Optional[str]
     customer_rating: Optional[int] = None
+    scheduled_for: Optional[datetime] = None
 
 
 class OrderListResponse(BaseModel):
@@ -123,3 +129,26 @@ class DeliveryLocationUpdate(BaseModel):
     accuracy: Optional[float] = None
     speed: Optional[float] = None
     heading: Optional[float] = None
+
+
+class CancelOrderRequest(BaseModel):
+    """Customer cancelling their own order."""
+    reason: Optional[str] = Field(None, max_length=300)
+
+
+class CancelOrderResponse(BaseModel):
+    order_id: UUID
+    status: str
+    # none | not_applicable | pending — "pending" means an online payment was
+    # captured and a refund is owed; it is processed by an admin/ops, never
+    # claimed as completed here.
+    refund_status: str
+    message: str
+
+
+class ServiceabilityResponse(BaseModel):
+    serviceable: bool
+    pincode: str
+    order_type: str
+    available_count: int
+    message: str

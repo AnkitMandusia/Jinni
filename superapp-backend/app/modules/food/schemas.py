@@ -323,6 +323,7 @@ class FoodOrderCreate(BaseModel):
     payment_method: str = Field(default="cod", pattern="^(cod|online|wallet)$")
     notes: Optional[str] = Field(None, max_length=500)
     coupon_code: Optional[str] = Field(None, max_length=40)
+    scheduled_for: Optional[datetime] = None
     force_clear_other_cart: bool = False
 
     @model_validator(mode="before")
@@ -370,6 +371,7 @@ class FoodOrderResponse(BaseModel):
     items: List[FoodOrderItemResponse] = []
     # delivery_otp field removed — OTPs must never be serialized in API responses.
     notes: Optional[str] = None
+    scheduled_for: Optional[datetime] = None
     created_at: datetime
     estimated_delivery_at: Optional[datetime] = None
 

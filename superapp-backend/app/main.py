@@ -29,6 +29,7 @@ from app.modules.users.addresses_router import router as addresses_router
 from app.modules.coupons.router import router as coupons_router
 from app.modules.payments_paytm import router as paytm_router
 from app.modules.support.router import router as support_router
+from app.modules.engagement.router import router as engagement_router
 from app.admin.router import router as admin_router
 from app.modules.delivery_otp.webhooks import router as webhook_router
 from app.realtime.router import router as realtime_router, redis_subscriber_loop
@@ -105,6 +106,7 @@ app.include_router(addresses_router, prefix="/api/v1")
 app.include_router(coupons_router, prefix="/api/v1")
 app.include_router(paytm_router, prefix="/api/v1")
 app.include_router(support_router, prefix="/api/v1")
+app.include_router(engagement_router, prefix="/api/v1")  # wallet, referral, shopping lists
 app.include_router(admin_router,    prefix="/api/v1")
 app.include_router(jinni_router, prefix="/api/v1")  # Jinni AI sessions
 app.include_router(webhook_router, prefix="/api/v1")  # Meta WhatsApp + SMS webhooks

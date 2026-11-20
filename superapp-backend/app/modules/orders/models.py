@@ -61,6 +61,9 @@ class PaymentStatus(str, enum.Enum):
     PAID = "paid"
     FAILED = "failed"
     REFUNDED = "refunded"
+    # Online payment captured, order cancelled afterwards: money is owed back to
+    # the customer and awaits ops/gateway processing (never auto-claimed as refunded).
+    REFUND_PENDING = "refund_pending"
 
 
 class Order(Base):
@@ -134,6 +137,9 @@ class Order(Base):
     customer_rating = Column(Integer, nullable=True)  # 1-5
     customer_review = Column(Text, nullable=True)
     
+    # Customer-chosen delivery slot (UTC, naive). None = deliver ASAP.
+    scheduled_for = Column(DateTime, nullable=True)
+
     # Special instructions
     notes = Column(Text, nullable=True)
     

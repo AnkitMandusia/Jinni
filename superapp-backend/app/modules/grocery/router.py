@@ -4,7 +4,7 @@ from uuid import UUID
 from decimal import Decimal
 
 from pydantic import BaseModel
-from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile, status
+from fastapi import APIRouter, Body, Depends, File, HTTPException, Query, UploadFile, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_db
@@ -14,7 +14,8 @@ from app.modules.grocery import schemas
 from app.modules.grocery.service import (
     category_service,
     product_service,
-    cart_service
+    cart_service,
+    check_cart as check_cart_service,
 )
 from app.modules.grocery.store_service import StoreInventoryService
 
@@ -389,6 +390,19 @@ async def validate_cart(
     Use this before checkout to ensure all items are available.
     """
     return await cart_service.validate_cart(db, items)
+
+
+@router.post("/cart/check", response_model=schemas.CartCheckResponse)
+async def check_cart(
+    items: List[schemas.CartCheckItem] = Body(..., min_length=1, max_length=50),
+    user: User = Depends(get_current_active_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """[Customer] Per-line availability (ok / partial / out_of_stock), live-price
+    drift, and in-stock swap suggestions — call before checkout so the customer
+    resolves problems in a bottom sheet instead of hitting a generic
+    'Insufficient stock' error at Place Order."""
+    return await check_cart_service(db, items)
 
 
 # ============== Admin Endpoints (Require Authentication) ==============
