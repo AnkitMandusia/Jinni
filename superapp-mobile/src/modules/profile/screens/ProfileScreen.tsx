@@ -77,6 +77,10 @@ export const ProfileScreen: React.FC = () => {
             <View style={styles.divider} />
             <MenuRow icon="location-outline" label="Saved Addresses" sub="Home, work & more" onPress={() => navigation.navigate('SavedAddresses')} />
             <View style={styles.divider} />
+            <MenuRow icon="wallet-outline" label="Wallet & Referral" sub="Balance, refer & earn" onPress={() => navigation.navigate('Wallet')} />
+            <View style={styles.divider} />
+            <MenuRow icon="list-outline" label="Shopping Lists" sub="Save & reorder groceries" onPress={() => navigation.navigate('ShoppingLists')} />
+            <View style={styles.divider} />
             <MenuRow icon="card-outline" label="Payment Methods" sub="UPI, saved cards" onPress={() => Alert.alert('Coming soon', 'Saved payment methods are coming soon. You can still pay via UPI/COD at checkout.')} />
             <View style={styles.divider} />
             <MenuRow icon="receipt-outline" label="My Orders" onPress={() => navigation.getParent()?.navigate('Orders')} />

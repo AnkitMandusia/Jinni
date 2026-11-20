@@ -14,6 +14,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { GroceryStackParamList } from '@navigation/stacks/GroceryStack';
 import { AppButton } from '@components/AppButton';
+import { CheckoutExtras } from '@components/CheckoutExtras';
 import { formatPrice } from '@utils/helpers';
 import { api } from '@services/api';
 import { useCartStore } from '@modules/cart/store/cartStore';
@@ -22,6 +23,14 @@ import { colors } from '@theme/colors';
 import { fontFamily } from '@theme/typography';
 import { spacing, borderRadius } from '@theme/spacing';
 import { initiatePaytm, startPaytmPayment, verifyPaytm } from '@services/paytm.service';
+import { useServiceability } from '@shared/hooks/useServiceability';
+import {
+  CartIssuesSheet,
+  CartCheckLine,
+  CartCheckSubstitute,
+} from '@modules/grocery/components/CartIssuesSheet';
+
+type CheckoutItem = { id: string; name: string; price: number; quantity: number; unit?: string };
 
 const GROCERY = colors.grocery?.primary || '#2E7D32';
 const FREE_DELIVERY_ABOVE = 500;
@@ -58,10 +67,16 @@ const SectionTitle: React.FC<{ icon: keyof typeof Ionicons.glyphMap; label: stri
 export const GroceryCheckoutScreen: React.FC = () => {
   const navigation = useNavigation();
   const route = useRoute<RouteProp<GroceryStackParamList, 'GroceryCheckout'>>();
-  const { items } = route.params as {
-    items: { id: string; name: string; price: number; quantity: number; unit?: string }[];
+  const { items: initialItems } = route.params as {
+    items: CheckoutItem[];
   };
+  // Local copy: the OOS sheet can swap / reduce / remove lines, and the bill
+  // below must follow. The shared cart store is kept in sync in each handler.
+  const [items, setItems] = useState<CheckoutItem[]>(initialItems);
   const clearModule = useCartStore((s) => s.clearModule);
+  const cartAddItem = useCartStore((s) => s.addItem);
+  const cartRemoveItem = useCartStore((s) => s.removeItem);
+  const cartUpdateQuantity = useCartStore((s) => s.updateQuantity);
   const pincodeFromHome = useLocationStore((s) => s.pincode) || '';
 
   const [addresses, setAddresses] = useState<Addr[]>([]);
@@ -75,12 +90,16 @@ export const GroceryCheckoutScreen: React.FC = () => {
   const [latitude, setLatitude] = useState<number | undefined>();
   const [longitude, setLongitude] = useState<number | undefined>();
   const [notes, setNotes] = useState('');
-  const [payment, setPayment] = useState<'cod' | 'online'>('cod');
+  const [payment, setPayment] = useState<'cod' | 'online' | 'wallet'>('cod');
+  const [scheduledFor, setScheduledFor] = useState<string | null>(null);
   const [coupon, setCoupon] = useState('');
   const [couponDiscount, setCouponDiscount] = useState(0);
   const [couponMsg, setCouponMsg] = useState('');
   const [loading, setLoading] = useState(false);
   const [loadingAddr, setLoadingAddr] = useState(true);
+  const [issueLines, setIssueLines] = useState<CartCheckLine[]>([]);
+  const [issuesOpen, setIssuesOpen] = useState(false);
+  const serviceability = useServiceability(pincode, 'grocery');
 
   useEffect(() => {
     (async () => {
@@ -147,6 +166,76 @@ export const GroceryCheckoutScreen: React.FC = () => {
     setLongitude(a.longitude);
   };
 
+  const dropFromCheckout = (productId: string) => {
+    cartRemoveItem(productId);
+    const next = items.filter((i) => i.id !== productId);
+    setItems(next);
+    setIssueLines((prev) => prev.filter((l) => l.product_id !== productId));
+    if (next.length === 0) {
+      setIssuesOpen(false);
+      Alert.alert('Cart is empty', 'All items were removed.', [{ text: 'OK', onPress: () => navigation.goBack() }]);
+    }
+  };
+
+  const handleSwap = (line: CartCheckLine, sub: CartCheckSubstitute) => {
+    const qty = Math.min(line.requested, sub.available);
+    cartRemoveItem(line.product_id);
+    cartAddItem({ id: sub.product_id, name: sub.name, price: sub.price, quantity: qty, unit: sub.unit, imageUrl: sub.image_url || undefined }, 'grocery');
+    setItems((prev) => {
+      const without = prev.filter((i) => i.id !== line.product_id);
+      const existing = without.find((i) => i.id === sub.product_id);
+      return existing
+        ? without.map((i) => (i.id === sub.product_id ? { ...i, quantity: Math.min(i.quantity + qty, sub.available) } : i))
+        : [...without, { id: sub.product_id, name: sub.name, price: sub.price, quantity: qty, unit: sub.unit }];
+    });
+    setIssueLines((prev) => prev.filter((l) => l.product_id !== line.product_id));
+  };
+
+  const handleReduce = (line: CartCheckLine) => {
+    cartUpdateQuantity(line.product_id, line.available);
+    setItems((prev) => prev.map((i) => (i.id === line.product_id ? { ...i, quantity: line.available } : i)));
+    setIssueLines((prev) => prev.filter((l) => l.product_id !== line.product_id));
+  };
+
+  // Close the sheet automatically once every flagged line is resolved.
+  useEffect(() => {
+    if (issuesOpen && issueLines.length === 0) setIssuesOpen(false);
+  }, [issuesOpen, issueLines.length]);
+
+  /**
+   * Authoritative pre-flight: availability + live price drift. Returns true only
+   * when the order can be placed as displayed. If the check itself fails
+   * (offline etc.) we proceed — the backend re-validates stock on order creation.
+   */
+  const preflightCart = async (): Promise<boolean> => {
+    let res: { ok: boolean; lines: CartCheckLine[] };
+    try {
+      res = await api.post('/grocery/cart/check', items.map((i) => ({ product_id: i.id, quantity: i.quantity, price: i.price })));
+    } catch {
+      return true;
+    }
+    const stockIssues = res.lines.filter((l) => l.status !== 'ok');
+    if (stockIssues.length > 0) {
+      setIssueLines(stockIssues);
+      setIssuesOpen(true);
+      return false;
+    }
+    const drifted = res.lines.filter((l) => l.price_changed && l.unit_price != null);
+    if (drifted.length > 0) {
+      const byId = new Map(drifted.map((l) => [l.product_id, l.unit_price as number]));
+      setItems((prev) => prev.map((i) => (byId.has(i.id) ? { ...i, price: byId.get(i.id) as number } : i)));
+      drifted.forEach((l) => {
+        const live = l.unit_price as number;
+        useCartStore.setState((st) => ({ items: st.items.map((ci) => (ci.id === l.product_id ? { ...ci, price: live } : ci)) }));
+      });
+      setCouponDiscount(0);
+      setCouponMsg('');
+      Alert.alert('Prices updated', 'Some prices changed since you added them. Please review the new total and place your order again.');
+      return false;
+    }
+    return true;
+  };
+
   const handlePlaceOrder = async () => {
     if (!line1.trim() || line1.trim().length < 3) {
       Alert.alert('Address', 'Enter house / street (min 3 characters).');
@@ -156,8 +245,13 @@ export const GroceryCheckoutScreen: React.FC = () => {
       Alert.alert('Pincode', 'Enter a valid 6-digit pincode.');
       return;
     }
+    if (serviceability.blocked) {
+      Alert.alert('Not serviceable', serviceability.message || 'We are not delivering to this pincode right now.');
+      return;
+    }
     setLoading(true);
     try {
+      if (!(await preflightCart())) return;
       // Always create the order on our backend first. For online payments, the
       // store only sees the order after Paytm confirms payment — same pattern
       // as food checkout.
@@ -177,6 +271,7 @@ export const GroceryCheckoutScreen: React.FC = () => {
           longitude,
         },
         payment_method: payment,
+        scheduled_for: scheduledFor,
         notes: notes.trim() || null,
         coupon_code: coupon.trim() ? coupon.trim().toUpperCase() : null,
       });
@@ -304,6 +399,18 @@ export const GroceryCheckoutScreen: React.FC = () => {
           />
         </View>
 
+        {serviceability.state === 'checking' && (
+          <Text style={styles.svcChecking}>Checking delivery availability…</Text>
+        )}
+        {serviceability.state === 'unserviceable' && (
+          <View style={styles.svcBanner}>
+            <Ionicons name="location-outline" size={16} color={colors.error.DEFAULT} />
+            <Text style={styles.svcBannerText}>
+              {serviceability.message || 'We are not delivering to this pincode right now.'}
+            </Text>
+          </View>
+        )}
+
         {/* Payment */}
         <SectionTitle icon="card-outline" label="Payment" />
         <View style={styles.payStack}>
@@ -345,6 +452,15 @@ export const GroceryCheckoutScreen: React.FC = () => {
           <Ionicons name="shield-checkmark-outline" size={12} color={colors.gray[400]} />
           <Text style={styles.hint}>Online payments are verified securely before your order is confirmed.</Text>
         </View>
+
+        <CheckoutExtras
+          payment={payment}
+          setPayment={setPayment}
+          total={total}
+          accent={GROCERY}
+          scheduledFor={scheduledFor}
+          setScheduledFor={setScheduledFor}
+        />
 
         {/* Coupon */}
         <SectionTitle icon="pricetag-outline" label="Coupon" />
@@ -440,13 +556,25 @@ export const GroceryCheckoutScreen: React.FC = () => {
               ? 'Placing order…'
               : payment === 'cod'
                 ? `Place COD · ${formatPrice(total)}`
-                : `Pay online · ${formatPrice(total)}`
+                : payment === 'wallet'
+                  ? `Pay with wallet · ${formatPrice(total)}`
+                  : `Pay online · ${formatPrice(total)}`
           }
           onPress={handlePlaceOrder}
           size="large"
-          disabled={loading}
+          disabled={loading || serviceability.blocked || items.length === 0}
         />
       </View>
+
+      <CartIssuesSheet
+        visible={issuesOpen}
+        lines={issueLines}
+        accent={GROCERY}
+        onSwap={handleSwap}
+        onReduce={handleReduce}
+        onRemove={(l) => dropFromCheckout(l.product_id)}
+        onClose={() => setIssuesOpen(false)}
+      />
     </SafeAreaView>
   );
 };
@@ -581,6 +709,17 @@ const styles = StyleSheet.create({
   total: { borderTopWidth: 1, borderTopColor: colors.gray[200], paddingTop: 8, marginTop: 4 },
   totalLabel: { fontSize: 16, fontFamily: fontFamily.bold },
   totalVal: { fontSize: 16, color: GROCERY, fontFamily: fontFamily.bold },
+  svcChecking: { fontSize: 12, color: colors.gray[400], fontFamily: fontFamily.regular, marginBottom: spacing.sm },
+  svcBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    padding: spacing.md,
+    borderRadius: borderRadius.md,
+    backgroundColor: colors.error.DEFAULT + '12',
+    marginBottom: spacing.sm,
+  },
+  svcBannerText: { flex: 1, fontSize: 13, color: colors.error.DEFAULT, fontFamily: fontFamily.medium },
   footer: {
     padding: spacing.lg,
     backgroundColor: colors.white,
