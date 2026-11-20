@@ -46,3 +46,28 @@ export interface OrderListParams {
 
 export const getOrders = (params: OrderListParams = {}) =>
   apiClient.get('/admin/orders', { params });
+
+// ── Grocery products (pages/grocery/ProductList.tsx) ─────────────────────────
+// Backend: superapp-backend/app/modules/grocery/router.py (prefix /grocery)
+
+export const getCategories = (params: object = {}) =>
+  apiClient.get('/grocery/categories', { params });
+
+export const getProducts = (params: object = {}) =>
+  apiClient.get('/grocery/products', { params });
+
+export const createProduct = (data: object) =>
+  apiClient.post('/grocery/admin/products', data);
+
+export const updateProduct = (productId: string, data: object) =>
+  apiClient.put(`/grocery/products/${productId}`, data);
+
+export const deleteProduct = (productId: string) =>
+  apiClient.delete(`/grocery/products/${productId}`);
+
+export const lookupBarcode = (barcode: string) =>
+  apiClient.get(`/grocery/barcode/${encodeURIComponent(barcode)}`);
+
+// Backend expects the multipart field to be named "file" (UploadFile)
+export const uploadProductImage = (formData: FormData) =>
+  apiClient.post('/grocery/products/upload-image', formData);
