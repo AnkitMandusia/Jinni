@@ -102,3 +102,14 @@ async def test_delivery_hook_rewards_both_once_and_marks_rewarded(monkeypatch):
     assert {c[0] for c in credits} == {referrer, referee}
     assert ref.status == "rewarded" and ref.rewarded_at is not None
     assert len({c[2] for c in credits}) == 2  # distinct idempotency refs
+
+
+def test_campaign_window_validation_and_tz():
+    from pydantic import ValidationError
+    from app.modules.engagement.router import CampaignIn
+    ok = CampaignIn(title="Diwali", starts_at="2026-11-01T00:00:00+05:30", ends_at="2026-11-05T00:00:00+05:30")
+    assert ok.starts_at.tzinfo is None and ok.starts_at.hour == 18  # 00:00 IST == 18:30 prev day UTC
+    with pytest.raises(ValidationError):
+        CampaignIn(title="x", starts_at="2026-11-05T00:00:00", ends_at="2026-11-01T00:00:00")
+    with pytest.raises(ValidationError):
+        CampaignIn(title="x", image_url="http://insecure/x.png", starts_at="2026-11-01T00:00:00", ends_at="2026-11-02T00:00:00")

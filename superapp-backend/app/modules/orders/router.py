@@ -156,6 +156,8 @@ async def cancel_order(
         message=(
             "Order cancelled. Your payment will be refunded to the original method."
             if refund_status == "pending"
+            else "Order cancelled. The amount was returned to your Jinni wallet."
+            if refund_status == "refunded"
             else "Order cancelled."
         ),
     )

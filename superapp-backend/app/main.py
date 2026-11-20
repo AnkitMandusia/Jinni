@@ -87,10 +87,23 @@ app = FastAPI(
 )
 
 # ── Middleware ────────────────────────────────────────────────────────────────
+_cors_origins = [o.strip() for o in settings.CORS_ORIGINS.split(",") if o.strip()] or ["*"]
+
+if not settings.DEBUG:
+    # Fail fast on obviously unsafe production config rather than serving it.
+    if len(settings.SECRET_KEY) < 32:
+        raise RuntimeError("SECRET_KEY must be at least 32 characters when DEBUG=false")
+    if _cors_origins == ["*"]:
+        logger.warning("CORS_ORIGINS is '*' with DEBUG=false — restrict it to your real origins")
+    if settings.OTP_DEBUG:
+        logger.warning("OTP_DEBUG=true with DEBUG=false — OTPs are exposed for testing; disable before go-live")
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],   # Restrict to your domain in production
-    allow_credentials=True,
+    allow_origins=_cors_origins,
+    # Credentials + wildcard origin is rejected by browsers anyway; only allow
+    # credentials when origins are explicit.
+    allow_credentials=_cors_origins != ["*"],
     allow_methods=["*"],
     allow_headers=["*"],
 )

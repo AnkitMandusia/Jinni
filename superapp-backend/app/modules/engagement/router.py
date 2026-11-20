@@ -186,3 +186,87 @@ async def list_with_products(list_id: UUID, user: User = Depends(_customer), db:
                     "image_url": p.primary_image_url, "quantity": i.quantity,
                     "in_stock": bool(p.is_active and p.available_stock >= 1)})
     return {"id": str(lst.id), "name": lst.name, "items": out}
+
+
+# ── campaigns (festival / offer banners) ─────────────────────────────────────
+from datetime import datetime  # noqa: E402
+from pydantic import model_validator  # noqa: E402
+from app.modules.engagement.models import Campaign  # noqa: E402
+
+
+def _campaign_out(c: Campaign):
+    return {"id": str(c.id), "eyebrow": c.eyebrow, "title": c.title, "subtitle": c.subtitle,
+            "image_url": c.image_url, "target": c.target, "coupon_code": c.coupon_code,
+            "priority": c.priority, "starts_at": c.starts_at.isoformat(), "ends_at": c.ends_at.isoformat(),
+            "is_active": c.is_active}
+
+
+@router.get("/campaigns/active")
+async def active_campaigns(db: AsyncSession = Depends(get_db)):
+    """Public (shown before login too): banners whose window contains *now*."""
+    now = datetime.utcnow()
+    rows = (await db.execute(
+        select(Campaign).where(Campaign.is_active == True, Campaign.starts_at <= now, Campaign.ends_at > now)  # noqa: E712
+        .order_by(Campaign.priority.desc(), Campaign.starts_at.desc()).limit(5)
+    )).scalars().all()
+    return [_campaign_out(c) for c in rows]
+
+
+class CampaignIn(BaseModel):
+    eyebrow: str = Field("OFFER", max_length=40)
+    title: str = Field(..., min_length=1, max_length=80)
+    subtitle: Optional[str] = Field(None, max_length=120)
+    image_url: Optional[str] = Field(None, max_length=500, pattern=r"^https://")
+    target: str = Field("none", pattern="^(food|grocery|cab|salon|jinni|none)$")
+    coupon_code: Optional[str] = Field(None, max_length=40)
+    priority: int = Field(0, ge=0, le=100)
+    starts_at: datetime
+    ends_at: datetime
+
+    @model_validator(mode="after")
+    def _window(self):
+        # Normalise tz-aware input to naive UTC, then require a sane window.
+        from datetime import timezone
+        for f in ("starts_at", "ends_at"):
+            v = getattr(self, f)
+            if v.tzinfo is not None:
+                setattr(self, f, v.astimezone(timezone.utc).replace(tzinfo=None))
+        if self.ends_at <= self.starts_at:
+            raise ValueError("ends_at must be after starts_at")
+        return self
+
+
+@router.get("/admin/campaigns")
+async def admin_list_campaigns(admin: User = Depends(require_role("admin")), db: AsyncSession = Depends(get_db)):
+    rows = (await db.execute(select(Campaign).order_by(Campaign.starts_at.desc()))).scalars().all()
+    return [_campaign_out(c) for c in rows]
+
+
+@router.post("/admin/campaigns", status_code=201)
+async def admin_create_campaign(body: CampaignIn, admin: User = Depends(require_role("admin")), db: AsyncSession = Depends(get_db)):
+    c = Campaign(**body.model_dump())
+    if c.coupon_code:
+        c.coupon_code = c.coupon_code.strip().upper()
+    db.add(c)
+    await db.commit()
+    await db.refresh(c)
+    return _campaign_out(c)
+
+
+@router.patch("/admin/campaigns/{campaign_id}/active")
+async def admin_toggle_campaign(campaign_id: UUID, is_active: bool = Query(...),
+                                admin: User = Depends(require_role("admin")), db: AsyncSession = Depends(get_db)):
+    c = await db.get(Campaign, campaign_id)
+    if not c:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Campaign not found")
+    c.is_active = is_active
+    await db.commit()
+    return _campaign_out(c)
+
+
+@router.delete("/admin/campaigns/{campaign_id}", status_code=204)
+async def admin_delete_campaign(campaign_id: UUID, admin: User = Depends(require_role("admin")), db: AsyncSession = Depends(get_db)):
+    c = await db.get(Campaign, campaign_id)
+    if c:
+        await db.delete(c)
+        await db.commit()
