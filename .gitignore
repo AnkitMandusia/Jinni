@@ -8,3 +8,22 @@ __pycache__/
 # Private credentials
 superapp-backend/firebase-credentials.json
 superapp-backend/google-services.json
+# OS / editor
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp
+
+# Build output / logs
+dist/
+web-build/
+*.tsbuildinfo
+*.log
+npm-debug.log*
+
+# Python
+.venv/
+venv/
+.pytest_cache/
+*.egg-info/
