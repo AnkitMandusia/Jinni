@@ -18,7 +18,7 @@ type Props = {
   statusLabel: string;
 };
 
-/** Decorative status illustration only. This is not a live route or GPS indicator. */
+/** Decorative status illustration only. This is not a live route or GPS indicator.  */
 export const JinniMagicJourney: React.FC<Props> = ({ stage, accent, pickupLabel, statusLabel }) => {
   const bob = useRef(new Animated.Value(0)).current;
   const glow = useRef(new Animated.Value(0)).current;
