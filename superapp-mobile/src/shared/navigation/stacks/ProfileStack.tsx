@@ -11,6 +11,7 @@ import { SettingsScreen } from '@modules/profile/screens/SettingsScreen';
 import { LegalScreen } from '@modules/profile/screens/LegalScreen';
 import { WalletScreen } from '@modules/profile/screens/WalletScreen';
 import { ShoppingListsScreen } from '@modules/profile/screens/ShoppingListsScreen';
+import { RideChargesScreen } from '@modules/profile/screens/RideChargesScreen';
 
 export type ProfileStackParamList = {
   ProfileHome: undefined;
@@ -20,6 +21,7 @@ export type ProfileStackParamList = {
   Settings: undefined;
   Wallet: undefined;
   ShoppingLists: undefined;
+  RideCharges: undefined;
   Legal: { doc: 'privacy' | 'terms' | 'refund' };
 };
 
@@ -44,6 +46,7 @@ export const ProfileStack: React.FC = () => {
       <Stack.Screen name="Settings" component={SettingsScreen} options={{ title: 'Settings' }} />
       <Stack.Screen name="Wallet" component={WalletScreen} options={{ title: 'Wallet & Referral' }} />
       <Stack.Screen name="ShoppingLists" component={ShoppingListsScreen} options={{ title: 'Shopping Lists' }} />
+      <Stack.Screen name="RideCharges" component={RideChargesScreen} options={{ title: 'Ride charges' }} />
       <Stack.Screen name="Legal" component={LegalScreen} options={{ title: 'Legal' }} />
     </Stack.Navigator>
   );

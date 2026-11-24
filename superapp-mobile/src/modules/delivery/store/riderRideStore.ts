@@ -1,5 +1,6 @@
 import { useEffect } from 'react';
-import { AppState } from 'react-native';
+import { Alert, AppState } from 'react-native';
+import * as Location from 'expo-location';
 import { createStore } from '@store/useStore';
 import { rideService } from '@modules/cab/services/rideService';
 import { Ride } from '@modules/cab/types';
@@ -8,6 +9,8 @@ interface RiderRideState {
   available: Ride[];
   active: Ride | null;
   busy: boolean;
+  /** Why this partner can't get rides right now (documents pending, expired insurance, rides switched off…). */
+  blockedReason: string | null;
   /** Rides switched off for this partner by admin — stop polling. */
   disabled: boolean;
   refresh: () => Promise<void>;
@@ -18,12 +21,13 @@ export const useRiderRides = createStore<RiderRideState>('rider-rides', (set: an
   available: [],
   active: null,
   busy: false,
+  blockedReason: null,
   disabled: false,
   refresh: async () => {
     if (get().disabled) return;
     try {
       const [a, act] = await Promise.all([rideService.riderAvailable(), rideService.riderActive()]);
-      set({ available: a.rides, busy: a.busy, active: act.ride });
+      set({ available: a.rides, busy: a.busy, active: act.ride, blockedReason: a.blocked_reason ?? null });
     } catch (e: any) {
       if (e?.response?.status === 403) set({ disabled: true, available: [], active: null });
       // other errors: keep last known state; the next poll retries
@@ -43,4 +47,36 @@ export function useRiderRidePolling() {
     const sub = AppState.addEventListener('change', (st) => { if (st === 'active') void refresh(); });
     return () => { clearInterval(t); sub.remove(); };
   }, [refresh]);
+}
+
+const LOCATION_MS = 15_000;
+
+/**
+ * Free "live location" for the customer: while this partner has an active ride, send the phone's GPS every
+ * 15 s (foreground only). The server keeps just the latest point, shows the customer a distance/ETA (no map
+ * tiles), and ignores updates when there is no active ride.
+ */
+export function useRideLocationSharing() {
+  const active = useRiderRides((s) => s.active);
+  const rideId = active?.id;
+  useEffect(() => {
+    if (!rideId) return;
+    let stopped = false;
+    let warned = false;
+    const send = async () => {
+      try {
+        let perm = await Location.getForegroundPermissionsAsync();
+        if (!perm.granted) perm = await Location.requestForegroundPermissionsAsync();
+        if (!perm.granted) {
+          if (!warned) { warned = true; Alert.alert('Location off', 'Turn on location so your customer can see how far you are.'); }
+          return;
+        }
+        const pos = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
+        if (!stopped) await rideService.riderLocation(pos.coords.latitude, pos.coords.longitude);
+      } catch { /* try again next tick */ }
+    };
+    void send();
+    const t = setInterval(() => { if (AppState.currentState === 'active') void send(); }, LOCATION_MS);
+    return () => { stopped = true; clearInterval(t); };
+  }, [rideId]);
 }

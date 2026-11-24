@@ -16,6 +16,7 @@ import { fontFamily } from '@theme/typography';
 import { borderRadius, spacing } from '@theme/spacing';
 import { useAuthStore } from '@auth/store/authStore';
 import { api } from '@services/api';
+import { VehicleDocsCard } from '../components/VehicleDocsCard';
 
 interface DeliveryProfile {
   id: string;
@@ -126,6 +127,8 @@ export const DeliveryProfileScreen: React.FC = () => {
             <Text style={styles.infoValue}>{profile?.license_no ?? '—'}</Text>
           </View>
         </View>
+
+        {profile && <View style={{ marginHorizontal: spacing.lg }}><VehicleDocsCard profile={profile as any} onSaved={fetchProfile} /></View>}
 
         {/* Editable fields */}
         <View style={styles.section}>

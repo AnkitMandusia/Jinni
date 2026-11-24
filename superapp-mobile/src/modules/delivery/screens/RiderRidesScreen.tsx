@@ -16,7 +16,7 @@ type History = Awaited<ReturnType<typeof rideService.riderHistory>>;
 /** Rides tab: current ride, open requests, and past rides with cash/UPI totals. */
 export const RiderRidesScreen: React.FC = () => {
   const navigation = useNavigation<any>();
-  const { available, active, busy, disabled, refresh, drop } = useRiderRides();
+  const { available, active, busy, disabled, blockedReason, refresh, drop } = useRiderRides();
   const [history, setHistory] = useState<History | null>(null);
   const [refreshing, setRefreshing] = useState(false);
 
@@ -49,12 +49,13 @@ export const RiderRidesScreen: React.FC = () => {
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); void load(); }} />}>
         <Text style={styles.h1}>🧞 Rides</Text>
         {disabled && <Text style={styles.notice}>Rides are switched off for your account. Contact admin.</Text>}
+        {!disabled && !!blockedReason && <Text style={styles.notice}>{blockedReason}</Text>}
 
         {active && (
           <TouchableOpacity style={styles.active} activeOpacity={0.9} onPress={() => navigation.navigate('RiderRide', { rideId: active.id })}>
             <Text style={styles.activeLbl}>CURRENT RIDE · {active.status.replace('_', ' ').toUpperCase()}</Text>
             <Text style={styles.activeRoute} numberOfLines={1}>{active.pickup.text} → {active.drop.text}</Text>
-            <Text style={styles.activeFare}>₹{active.fare.toFixed(0)} · tap to continue</Text>
+            <Text style={styles.activeFare}>₹{active.total_payable.toFixed(0)} · tap to continue</Text>
           </TouchableOpacity>
         )}
 
@@ -66,7 +67,7 @@ export const RiderRidesScreen: React.FC = () => {
             <Text style={styles.route} numberOfLines={1}>{r.pickup.text}</Text>
             <Text style={styles.arrow}>↓</Text>
             <Text style={styles.route} numberOfLines={1}>{r.drop.text}</Text>
-            <Text style={styles.meta}>₹{r.fare.toFixed(0)} · {r.distance_km.toFixed(1)} km · {r.payment_method.toUpperCase()}</Text>
+            <Text style={styles.meta}>₹{r.total_payable.toFixed(0)} · {r.distance_km.toFixed(1)} km · {r.payment_method.toUpperCase()}{r.boost_amount > 0 ? ` · 💸 +₹${r.boost_amount.toFixed(0)} added` : ''}{r.surge_multiplier > 1 ? ' · ⚡ busy fare' : ''}</Text>
             <View style={styles.btnRow}>
               <TouchableOpacity style={styles.skip} onPress={() => skip(r)}><Text style={styles.skipTxt}>Skip</Text></TouchableOpacity>
               <TouchableOpacity style={styles.accept} onPress={() => accept(r)}><Text style={styles.acceptTxt}>Accept</Text></TouchableOpacity>
@@ -87,7 +88,7 @@ export const RiderRidesScreen: React.FC = () => {
           <TouchableOpacity key={r.id} style={styles.card} activeOpacity={0.85} onPress={() => navigation.navigate('RiderRide', { rideId: r.id })}>
             <View style={styles.rowBetween}>
               <Text style={styles.meta}>{r.completed_at ? new Date(r.completed_at).toLocaleString('en-IN', { day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' }) : r.status}</Text>
-              <Text style={styles.fareSm}>₹{r.fare.toFixed(0)}</Text>
+              <Text style={styles.fareSm}>₹{r.total_payable.toFixed(0)}</Text>
             </View>
             <Text style={styles.route} numberOfLines={1}>{r.pickup.text} → {r.drop.text}</Text>
             <View style={styles.rowBetween}>

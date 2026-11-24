@@ -87,7 +87,9 @@ export const RideRequestAlert: React.FC = () => {
             <Text style={styles.badge}>🧞 NEW RIDE</Text>
             <Text style={styles.timer}>{Math.max(left, 0)}s</Text>
           </View>
-          <Text style={styles.fare}>₹{current.fare.toFixed(0)}</Text>
+          <Text style={styles.fare}>₹{current.total_payable.toFixed(0)}</Text>
+          {current.boost_amount > 0 && <Text style={styles.boost}>💸 Customer added ₹{current.boost_amount.toFixed(0)} to the fare</Text>}
+          {current.surge_multiplier > 1 && <Text style={styles.boost}>⚡ Busy-time fare ×{current.surge_multiplier.toFixed(2).replace(/\.?0+$/, '')}</Text>}
           <Text style={styles.meta}>
             {current.distance_km.toFixed(1)} km · {current.payment_method === 'cash' ? '💵 Cash' : '📲 UPI'}
             {current.customer?.name ? ` · ${current.customer.name}` : ''}
@@ -116,6 +118,7 @@ const styles = StyleSheet.create({
   timer: { fontFamily: fontFamily.bold, color: '#B42318', fontSize: 14 },
   fare: { fontFamily: fontFamily.bold, fontSize: 42, color: P[800], marginTop: 4 },
   meta: { fontFamily: fontFamily.medium, fontSize: 13, color: '#667085' },
+  boost: { fontFamily: fontFamily.semiBold, fontSize: 12, color: '#B54708', marginTop: 4 },
   accept: { flexDirection: 'row', gap: 8, alignItems: 'center', justifyContent: 'center', backgroundColor: G[400], paddingVertical: 16, borderRadius: 16 },
   acceptTxt: { fontFamily: fontFamily.bold, fontSize: 17, color: P[900] },
   skip: { alignItems: 'center', paddingVertical: 14 },
