@@ -131,9 +131,9 @@ export const CustomerHomeScreen: React.FC = () => {
       {
         id: 'rides',
         image: homeAssets.heroRide,
-        eyebrow: 'RIDES',
-        title: 'Go anywhere nearby',
-        subtitle: 'Quick and convenient rides',
+        eyebrow: 'JINNI CARPET',
+        title: 'Wish a ride, fly across town',
+        subtitle: 'Fixed fare · Cash or UPI',
         onPress: () => requirePincode(() => navigation.navigate('Cab')),
       },
       {
@@ -201,7 +201,7 @@ export const CustomerHomeScreen: React.FC = () => {
       {
         id: 'rides',
         title: 'Rides',
-        subtitle: '3 min away',
+        subtitle: 'Fixed fare',
         tint: colors.cab.primary + '14',
         image: homeAssets.catRide,
         onPress: () => requirePincode(() => navigation.navigate('Cab')),

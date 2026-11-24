@@ -8,6 +8,7 @@ import { DashboardPage } from './pages/dashboard/DashboardPage';
 import { UsersPage } from './pages/users/UsersPage';
 import { OrdersPage } from './pages/orders/OrdersPage';
 import { DeliveryAgentsPage } from './pages/delivery/DeliveryAgentsPage';
+import { RidesPage } from './pages/rides/RidesPage';
 import { PartnerDashboardPage } from './pages/partners/PartnerDashboardPage';
 
 const roleHome = (role?: string) => {
@@ -47,6 +48,7 @@ const AppRoutes: React.FC = () => {
     <Route path="/admin" element={<ProtectedRoute roles={['admin','super_admin']}><DashboardPage /></ProtectedRoute>} />
     <Route path="/users" element={<ProtectedRoute roles={['admin','super_admin']}><UsersPage /></ProtectedRoute>} />
     <Route path="/orders" element={<ProtectedRoute roles={['admin','super_admin']}><OrdersPage /></ProtectedRoute>} />
+    <Route path="/rides" element={<ProtectedRoute roles={['admin','super_admin']}><RidesPage /></ProtectedRoute>} />
     <Route path="/delivery" element={<ProtectedRoute roles={['admin','super_admin']}><DeliveryAgentsPage /></ProtectedRoute>} />
     <Route path="/restaurant/*" element={<ProtectedRoute roles={['restaurant']}><PartnerDashboardPage /></ProtectedRoute>} />
     <Route path="/store/*" element={<ProtectedRoute roles={['store','grocery']}><PartnerDashboardPage /></ProtectedRoute>} />

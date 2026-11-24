@@ -68,3 +68,23 @@ export const lookupBarcode = (barcode: string) =>
   apiClient.get(`/grocery/barcode/${encodeURIComponent(barcode)}`);
 export const uploadProductImage = (formData: FormData) =>
   apiClient.post('/grocery/products/upload-image', formData);
+
+// ── Rides (bike taxi) ────────────────────────────────────────────────────────
+
+export const getRideSummary = () => apiClient.get('/admin/rides/summary');
+export const getRides = (params: Record<string, unknown> = {}) => apiClient.get('/admin/rides', { params });
+export const assignRide = (id: string, rider_id: string) => apiClient.post(`/admin/rides/${id}/assign`, { rider_id });
+export const cancelRide = (id: string, reason: string) => apiClient.post(`/admin/rides/${id}/cancel`, { reason });
+export const adjustRideFare = (id: string, fare: number, reason: string) =>
+  apiClient.patch(`/admin/rides/${id}/fare`, { fare, reason });
+export const markRidePaid = (id: string, reference?: string) =>
+  apiClient.post(`/admin/rides/${id}/mark-paid`, { reference });
+export const getRideSettings = () => apiClient.get('/admin/rides/settings');
+export const saveRideSettings = (payload: Record<string, unknown>) => apiClient.put('/admin/rides/settings', payload);
+export const getRidePlaces = () => apiClient.get('/admin/rides/places');
+export const saveRidePlace = (payload: Record<string, unknown>, id?: string) =>
+  id ? apiClient.put(`/admin/rides/places/${id}`, payload) : apiClient.post('/admin/rides/places', payload);
+export const deleteRidePlace = (id: string) => apiClient.delete(`/admin/rides/places/${id}`);
+export const getRidePartners = () => apiClient.get('/admin/rides/partners');
+export const setRidePartner = (id: string, ride_enabled: boolean) =>
+  apiClient.patch(`/admin/rides/partners/${id}`, { ride_enabled });
