@@ -16,6 +16,7 @@ from app.modules.food import schemas
 from app.modules.coupons.router import Coupon, CouponRedemption
 from app.modules.coupons.service import validate_coupon_for_order, record_cod_redemption
 from app.modules.engagement import service as engagement
+from app.modules.rides import dues as ride_dues
 from app.modules.orders.models import (
     Order, OrderItem, OrderType, OrderStatus, PaymentMethod, PaymentStatus,
 )
@@ -518,6 +519,12 @@ class FoodOrderService:
             notes=data.notes,
         )
         db.add(order); await db.flush()
+        # Earlier ride-cancellation fees ride along with this order (released again if it fails).
+        dues = await ride_dues.apply_to(db, customer.id, f"order:{order.id}")
+        if dues > 0:
+            order.platform_dues = dues
+            order.total_amount = Decimal(order.total_amount) + dues
+            total = order.total_amount
         for oi in order_items_data:
             db.add(OrderItem(order_id=order.id, product_id=None, product_name=oi["product_name"],
                 product_sku=None, unit_price=oi["unit_price"], quantity=oi["quantity"], subtotal=oi["subtotal"]))
@@ -568,6 +575,7 @@ class FoodOrderService:
         if new_status == OrderStatus.STORE_ACCEPTED.value: order.accepted_at = datetime.utcnow()
         if new_status in (OrderStatus.REJECTED.value, OrderStatus.CANCELLED.value):
             await engagement.refund_wallet_order(db, order)
+            await ride_dues.release(db, f"order:{order.id}")
         await db.commit(); await db.refresh(order); return order
 
     async def dashboard_stats(self, db, owner):

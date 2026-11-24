@@ -68,6 +68,19 @@ class CompleteProfileRequest(BaseModel):
     vehicle_type: Optional[str] = None
     license_no: Optional[str] = None
     aadhaar: Optional[str] = None
+    # Partner KYC (validated in app.modules.delivery.kyc)
+    vehicle_class: Optional[str] = None      # bike | auto | cab
+    vehicle_number: Optional[str] = None
+    vehicle_make_model: Optional[str] = None
+    vehicle_color: Optional[str] = None
+    dob: Optional[str] = None                # YYYY-MM-DD
+    dl_expiry: Optional[str] = None
+    rc_expiry: Optional[str] = None
+    insurance_expiry: Optional[str] = None
+    aadhaar_last4: Optional[str] = None
+    emergency_name: Optional[str] = None
+    emergency_phone: Optional[str] = None
+    upi_id: Optional[str] = None
 
 
 class RefreshTokenRequest(BaseModel):

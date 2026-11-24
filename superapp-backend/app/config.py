@@ -93,6 +93,11 @@ class Settings(BaseSettings):
     # by calendar month ('YYYY-MM') — see jinni/models.py JinniMonthlyBudget.
     JINNI_MONTHLY_BUDGET_PAISE: int = 50_000
 
+    # OpenStreetMap services (free, no key). Self-host Nominatim/Overpass and change these when traffic grows.
+    OVERPASS_URL: str = "https://overpass-api.de/api/interpreter"
+    NOMINATIM_URL: str = "https://nominatim.openstreetmap.org"
+    OSM_USER_AGENT: str = "JinniCarpet/1.0 (local rides app)"
+
     # Cloudflare R2 (S3-compatible, for product images)
     R2_ENDPOINT: str = ""         # https://<account_id>.r2.cloudflarestorage.com
     R2_ACCESS_KEY: str = ""
