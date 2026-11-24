@@ -27,6 +27,9 @@ PIN, CITY, STATE = "302001", "Jaipur", "Rajasthan"
 # Customer-facing / non-food partners. Food restaurant owners are created by the food seed
 # and get their email+password below.
 ACCOUNTS = [
+    # Super admin (web console + mobile app). The second one matches scripts/seed_admin.py.
+    dict(role="admin", email="admin@test.com", phone="+910000000001", name="Super Admin"),
+    dict(role="admin", email="mandusiaankit.005@gmail.com", phone="+910000000002", name="Super Admin", pw="Superadmin@2024"),
     dict(role="customer", email="customer@test.com", phone="+919876543215", name="Test Customer"),
     dict(role="delivery", email="delivery@test.com", phone="+919876543211", name="Amit Singh (Delivery)", vc="bike"),
     dict(role="delivery", email="delivery2@test.com", phone="+919876543221", name="Rohit Meena (Delivery)", vc="auto"),
@@ -103,7 +106,8 @@ async def seed_accounts(db, pw_hash: str) -> list[tuple[str, str]]:
             db.add(u)
             await db.flush()
         u.email, u.role, u.status = a["email"], a["role"], ("pending_approval" if a.get("pending") else "active")
-        u.profile_complete, u.is_active, u.is_verified, u.password_hash = True, True, True, pw_hash
+        u.profile_complete, u.is_active, u.is_verified = True, True, True
+        u.password_hash = bcrypt.hashpw(a["pw"].encode(), bcrypt.gensalt()).decode() if a.get("pw") else pw_hash
 
         if a["role"] == "store":
             has = (await db.execute(select(StoreProfile).where(StoreProfile.user_id == u.id))).scalar_one_or_none()

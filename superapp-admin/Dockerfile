@@ -7,6 +7,7 @@ COPY . .
 # Empty VITE_API_URL => the SPA calls same-origin /api/v1, which nginx proxies to the API.
 ARG VITE_API_URL=""
 ENV VITE_API_URL=$VITE_API_URL
+ENV VITE_API_SAME_ORIGIN=1
 RUN npm run build
 
 FROM nginx:1.27-alpine

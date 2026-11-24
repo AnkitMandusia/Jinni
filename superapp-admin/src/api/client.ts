@@ -1,7 +1,8 @@
 import axios, { AxiosAdapter, AxiosError, InternalAxiosRequestConfig } from 'axios';
 
 const configuredOrigin = (import.meta.env.VITE_API_URL || '').trim().replace(/\/+$/, '');
-export const API_CONFIGURED = Boolean(configuredOrigin) || !import.meta.env.PROD;
+// Same-origin deployments (Docker/nginx proxies /api to FastAPI) set VITE_API_SAME_ORIGIN=1 and need no URL.
+export const API_CONFIGURED = Boolean(configuredOrigin) || !import.meta.env.PROD || import.meta.env.VITE_API_SAME_ORIGIN === '1';
 export const API_BASE_URL = configuredOrigin ? `${configuredOrigin}/api/v1` : '/api/v1';
 
 const DEV_MOCK_TOKEN = 'jinni-local-restaurant-preview';

@@ -9,7 +9,7 @@ import {
 } from '@ant-design/icons';
 import { getUsers, approveUser, rejectUser, suspendUser, reactivateUser } from '../../api/admin';
 
-const { Title, Text } = Typography;
+const { Text } = Typography;
 const { Search } = Input;
 
 interface User {
@@ -49,7 +49,7 @@ const ROLE_OPTIONS = [
 
 const STATUS_OPTIONS = [
   { label: 'All Status', value: '' },
-  { label: 'Pending', value: 'pending' },
+  { label: 'Pending', value: 'pending_approval' },
   { label: 'Active', value: 'active' },
   { label: 'Suspended', value: 'suspended' },
   { label: 'Rejected', value: 'rejected' },
@@ -138,7 +138,7 @@ export const UsersPage: React.FC = () => {
       key: 'status',
       render: (status: string) => (
         <Badge
-          status={status === 'active' ? 'success' : status === 'pending' ? 'warning' : 'error'}
+          status={status === 'active' ? 'success' : status === 'pending_approval' ? 'warning' : 'error'}
           text={
             <Tag color={STATUS_COLOR[status] ?? 'default'} style={{ fontWeight: 600 }}>
               {status?.toUpperCase()}
@@ -166,7 +166,7 @@ export const UsersPage: React.FC = () => {
       key: 'actions',
       render: (u: User) => (
         <Space>
-          {u.status === 'pending' && (
+          {u.status === 'pending_approval' && (
             <>
               <Tooltip title="Approve">
                 <Button
@@ -233,8 +233,7 @@ export const UsersPage: React.FC = () => {
   return (
     <div>
       <div style={{ marginBottom: 24 }}>
-        <Title level={3} style={{ margin: 0 }}>Users</Title>
-        <Text type="secondary">Manage user accounts and approvals</Text>
+        <div className="j-hero"><div style={{ position: 'relative', zIndex: 1 }}><div className="j-kicker">✦ ACCOUNTS</div><h1>Users & partners</h1><p>Approve new partners, suspend or reactivate accounts. Delivery partners: verify their documents in Rides → Ride partners before approving.</p></div></div>
       </div>
 
       <Card
@@ -295,7 +294,7 @@ export const UsersPage: React.FC = () => {
           scroll={{ x: 800 }}
           size="middle"
           rowClassName={(record) =>
-            record.status === 'pending' ? 'highlight-row' : ''
+            record.status === 'pending_approval' ? 'highlight-row' : ''
           }
         />
       </Card>

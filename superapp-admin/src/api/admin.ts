@@ -1,5 +1,14 @@
 import apiClient from './client';
 
+/** Same calls as apiClient but resolve to the response body (most admin pages want just the JSON). */
+const api = {
+  get: <T = any>(url: string, cfg?: any) => apiClient.get<T>(url, cfg).then(r => r.data),
+  post: <T = any>(url: string, body?: any, cfg?: any) => apiClient.post<T>(url, body, cfg).then(r => r.data),
+  put: <T = any>(url: string, body?: any, cfg?: any) => apiClient.put<T>(url, body, cfg).then(r => r.data),
+  patch: <T = any>(url: string, body?: any, cfg?: any) => apiClient.patch<T>(url, body, cfg).then(r => r.data),
+  delete: <T = any>(url: string, cfg?: any) => apiClient.delete<T>(url, cfg).then(r => r.data),
+};
+
 // ── Auth ─────────────────────────────────────────────────────────────────────
 
 export const sendOTP = (phone: string) =>
@@ -10,7 +19,7 @@ export const verifyOTP = (phone: string, otp: string) =>
 
 // ── Stats ────────────────────────────────────────────────────────────────────
 
-export const getStats = () => apiClient.get('/admin/stats');
+export const getStats = () => api.get('/admin/stats');
 
 // ── Users ────────────────────────────────────────────────────────────────────
 
@@ -22,19 +31,19 @@ export interface UserListParams {
 }
 
 export const getUsers = (params: UserListParams = {}) =>
-  apiClient.get('/admin/users', { params });
+  api.get('/admin/users', { params });
 
 export const approveUser = (userId: string) =>
-  apiClient.post(`/admin/users/${userId}/approve`);
+  api.post(`/admin/users/${userId}/approve`);
 
 export const rejectUser = (userId: string, reason?: string) =>
-  apiClient.post(`/admin/users/${userId}/reject`, { reason });
+  api.post(`/admin/users/${userId}/reject`, { reason });
 
 export const suspendUser = (userId: string) =>
-  apiClient.post(`/admin/users/${userId}/suspend`);
+  api.post(`/admin/users/${userId}/suspend`);
 
 export const reactivateUser = (userId: string) =>
-  apiClient.post(`/admin/users/${userId}/reactivate`);
+  api.post(`/admin/users/${userId}/reactivate`);
 
 // ── Orders ───────────────────────────────────────────────────────────────────
 
@@ -45,7 +54,7 @@ export interface OrderListParams {
 }
 
 export const getOrders = (params: OrderListParams = {}) =>
-  apiClient.get('/admin/orders', { params });
+  api.get('/admin/orders', { params });
 
 
 // ── Grocery catalogue (admin / store permissions enforced by the API) ────────
@@ -55,8 +64,8 @@ export interface ProductListParams {
   page?: number;
   page_size?: number;
 }
-export const getProducts = (params: ProductListParams = {}) =>
-  apiClient.get('/grocery/products', { params });
+export const getProducts = (params: ProductListParams & Record<string, unknown> = {}) =>
+  apiClient.get('/admin/catalog/products', { params });
 export const getCategories = () => apiClient.get('/grocery/categories');
 export const createProduct = (payload: Record<string, unknown>) =>
   apiClient.post('/grocery/admin/products', payload);
@@ -71,30 +80,40 @@ export const uploadProductImage = (formData: FormData) =>
 
 // ── Rides (bike taxi) ────────────────────────────────────────────────────────
 
-export const getRideSummary = () => apiClient.get('/admin/rides/summary');
-export const getRides = (params: Record<string, unknown> = {}) => apiClient.get('/admin/rides', { params });
-export const assignRide = (id: string, rider_id: string) => apiClient.post(`/admin/rides/${id}/assign`, { rider_id });
-export const cancelRide = (id: string, reason: string) => apiClient.post(`/admin/rides/${id}/cancel`, { reason });
+export const getRideSummary = () => api.get('/admin/rides/summary');
+export const getRides = (params: Record<string, unknown> = {}) => api.get('/admin/rides', { params });
+export const assignRide = (id: string, rider_id: string) => api.post(`/admin/rides/${id}/assign`, { rider_id });
+export const cancelRide = (id: string, reason: string) => api.post(`/admin/rides/${id}/cancel`, { reason });
 export const adjustRideFare = (id: string, fare: number, reason: string) =>
-  apiClient.patch(`/admin/rides/${id}/fare`, { fare, reason });
-export const waiveRideFee = (id: string, reason: string) => apiClient.post(`/admin/rides/${id}/waive-fee`, { reason });
+  api.patch(`/admin/rides/${id}/fare`, { fare, reason });
+export const waiveRideFee = (id: string, reason: string) => api.post(`/admin/rides/${id}/waive-fee`, { reason });
 export const markRidePaid = (id: string, reference?: string) =>
-  apiClient.post(`/admin/rides/${id}/mark-paid`, { reference });
-export const getRideSettings = () => apiClient.get('/admin/rides/settings');
-export const saveRideSettings = (payload: Record<string, unknown>) => apiClient.put('/admin/rides/settings', payload);
+  api.post(`/admin/rides/${id}/mark-paid`, { reference });
+export const getRideSettings = () => api.get('/admin/rides/settings');
+export const saveRideSettings = (payload: Record<string, unknown>) => api.put('/admin/rides/settings', payload);
 export const saveRideFare = (vehicleClass: string, payload: Record<string, unknown>) =>
-  apiClient.put(`/admin/rides/fares/${vehicleClass}`, payload);
-export const getPricingPreview = () => apiClient.get('/admin/rides/pricing/preview');
-export const getRidePlaces = () => apiClient.get('/admin/rides/places');
+  api.put(`/admin/rides/fares/${vehicleClass}`, payload);
+export const getPricingPreview = () => api.get('/admin/rides/pricing/preview');
+export const getRidePlaces = () => api.get('/admin/rides/places');
 export const saveRidePlace = (payload: Record<string, unknown>, id?: string) =>
-  id ? apiClient.put(`/admin/rides/places/${id}`, payload) : apiClient.post('/admin/rides/places', payload);
-export const deleteRidePlace = (id: string) => apiClient.delete(`/admin/rides/places/${id}`);
-export const importOsmPlaces = (payload: Record<string, unknown>) => apiClient.post('/admin/rides/places/import-osm', payload, { timeout: 90000 });
+  id ? api.put(`/admin/rides/places/${id}`, payload) : api.post('/admin/rides/places', payload);
+export const deleteRidePlace = (id: string) => api.delete(`/admin/rides/places/${id}`);
+export const importOsmPlaces = (payload: Record<string, unknown>) => api.post('/admin/rides/places/import-osm', payload, { timeout: 90000 });
 export const bulkActivatePlaces = (ids: string[], is_active: boolean) =>
-  apiClient.post('/admin/rides/places/bulk-active', { ids, is_active });
-export const getRidePartners = () => apiClient.get('/admin/rides/partners');
+  api.post('/admin/rides/places/bulk-active', { ids, is_active });
+export const getRidePartners = () => api.get('/admin/rides/partners');
 export const patchRidePartner = (id: string, payload: Record<string, unknown>) =>
-  apiClient.patch(`/admin/rides/partners/${id}`, payload);
-export const getSosList = (status = 'open') => apiClient.get('/admin/rides/sos', { params: { status } });
-export const resolveSos = (id: string, resolution: string) => apiClient.post(`/admin/rides/sos/${id}/resolve`, { resolution });
-export const getSosCount = () => apiClient.get('/admin/rides/sos-count');
+  api.patch(`/admin/rides/partners/${id}`, payload);
+export const getSosList = (status = 'open') => api.get('/admin/rides/sos', { params: { status } });
+export const resolveSos = (id: string, resolution: string) => api.post(`/admin/rides/sos/${id}/resolve`, { resolution });
+export const getSosCount = () => api.get('/admin/rides/sos-count');
+
+// ── Business insights (food + grocery + rides) ───────────────────────────────
+export const getOverview = (days = 7) => api.get('/admin/insights/overview', { params: { days } });
+export const searchOrders = (params: Record<string, unknown> = {}) => api.get('/admin/orders/search', { params });
+export const getOrderDetail = (id: string) => api.get(`/admin/orders/${id}/detail`);
+export const markOrderRefunded = (id: string, reference: string) => api.post(`/admin/orders/${id}/mark-refunded`, { reference });
+export const manualCompleteOrder = (id: string, reason: string) => api.post(`/admin/orders/${id}/manual-complete`, { reason });
+export const getPaymentsLedger = (params: Record<string, unknown> = {}) => api.get('/admin/insights/payments', { params });
+export const getAdminRestaurants = (params: Record<string, unknown> = {}) => api.get('/admin/restaurants', { params });
+export const restaurantAction = (id: string, action: 'verify' | 'reject' | 'activate' | 'deactivate') => api.post(`/admin/restaurants/${id}/${action}`);

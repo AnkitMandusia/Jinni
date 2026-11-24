@@ -11,7 +11,7 @@ import {
   markRidePaid, patchRidePartner, rejectUser, resolveSos, saveRideFare, saveRidePlace, saveRideSettings, waiveRideFee,
 } from '../../api/admin';
 
-const { Title, Text, Paragraph } = Typography;
+const { Text, Paragraph } = Typography;
 
 const STATUS_COLOR: Record<string, string> = {
   requested: 'orange', accepted: 'blue', arrived: 'cyan', in_progress: 'geekblue', completed: 'green', cancelled: 'red', expired: 'default',
@@ -521,7 +521,7 @@ export const RidesPage: React.FC = () => {
 
   return (
     <Space direction="vertical" size={16} style={{ width: '100%' }}>
-      <Title level={3} style={{ margin: 0 }}>🧞 Jinni Carpet · Rides</Title>
+      <div className="j-hero"><div style={{ position: 'relative', zIndex: 1 }}><div className="j-kicker">✦ JINNI CARPET</div><h1>Rides</h1><p>Bookings, riders and approvals, fares and dynamic pricing, Jinni Spots, SOS desk and payments.</p></div></div>
       {!!sum?.open_sos && <Alert type="error" showIcon banner message={`${sum.open_sos} open SOS alert${sum.open_sos > 1 ? 's' : ''} — respond now`} action={<Button danger type="primary" size="small" onClick={() => setParams({ tab: 'sos' })}>Open SOS</Button>} />}
       {!!sum?.pending_partners && <Alert type="info" showIcon message={`${sum.pending_partners} partner${sum.pending_partners > 1 ? 's are' : ' is'} waiting for approval`} action={<Button size="small" onClick={() => setParams({ tab: 'p' })}>Review</Button>} />}
       <Row gutter={[12, 12]}>

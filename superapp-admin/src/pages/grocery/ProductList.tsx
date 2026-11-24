@@ -231,12 +231,12 @@ export const ProductListPage: React.FC = () => {
     {
       title: 'Stock',
       dataIndex: 'stock_quantity',
-      render: (v: number) => <Text>{v}</Text>,
+      render: (v: number, r: any) => { const avail = v - (r.reserved_quantity || 0); const low = avail <= (r.low_stock_threshold ?? 5); return <Space direction="vertical" size={0}><Text strong style={{ color: avail <= 0 ? '#B42318' : low ? '#B54708' : undefined }}>{avail} free</Text><Text type="secondary" style={{ fontSize: 11 }}>{v} on hand{r.reserved_quantity ? ` · ${r.reserved_quantity} reserved` : ''}</Text></Space>; },
     },
     {
       title: 'Owner',
       dataIndex: 'owner_type',
-      render: (v: string) => <Tag color={OWNER_COLOR[v] ?? 'default'}>{v.toUpperCase()}</Tag>,
+      render: (v: string, r: any) => <Space direction="vertical" size={0}><Tag color={OWNER_COLOR[v] ?? 'default'} style={{ marginInlineEnd: 0 }}>{(v || 'platform').toUpperCase()}</Tag>{v === 'store' && r.owner && <Text type="secondary" style={{ fontSize: 11 }}>{r.owner}</Text>}</Space>,
     },
     {
       title: 'Active',
@@ -268,9 +268,11 @@ export const ProductListPage: React.FC = () => {
   ];
 
   return (
-    <>
+    <div style={{ display: 'grid', gap: 16 }}>
+      <div className="j-hero"><div style={{ position: 'relative', zIndex: 1 }}><div className="j-kicker">✦ GROCERY CATALOGUE</div><h1>Products & prices</h1><p>Prices, MRP and stock for the whole platform. Store-owned products show their store. Customers see changes instantly.</p></div>
+        <div style={{ position: 'relative', zIndex: 1, textAlign: 'right' }}><div className="j-kicker">PRODUCTS</div><div style={{ fontSize: 30, fontWeight: 800 }}>{total}</div></div></div>
       <Card
-        title={<Title level={4} style={{ margin: 0 }}>📦 Products</Title>}
+        title={<Title level={4} style={{ margin: 0 }}>Catalogue</Title>}
         extra={
           <Button type="primary" icon={<PlusOutlined />} onClick={openAdd}>
             Add Product
@@ -323,7 +325,6 @@ export const ProductListPage: React.FC = () => {
           size="middle"
         />
       </Card>
-
       {/* Add / Edit Modal */}
       <Modal
         title={editing ? `Edit: ${editing.name}` : 'Add Product'}
@@ -451,7 +452,7 @@ export const ProductListPage: React.FC = () => {
           )}
         </Form>
       </Modal>
-    </>
+    </div>
   );
 };
 
