@@ -174,3 +174,21 @@ def test_parse_limit_and_nominatim_shape():
 def test_viewbox_is_ordered_left_top_right_bottom():
     left, top, right, bottom = map(float, osm.viewbox(26.9, 75.8, 20).split(","))
     assert left < 75.8 < right and bottom < 26.9 < top
+
+
+def test_pick_diverse_caps_each_category():
+    ranked = [{"category": "railway", "score": 100 - i, "name": f"s{i}"} for i in range(6)] + \
+             [{"category": "mall", "score": 50, "name": "m"}]
+    out = osm.pick_diverse(ranked, limit=10, per_category=3)
+    assert [c["name"] for c in out] == ["s0", "s1", "s2", "m"]
+
+
+def test_nominatim_fallback_filters_lookalikes_and_generic_names():
+    rows = [
+        ("railway", 95, [{"lat": "26.92", "lon": "75.78", "name": "Jaipur Junction", "category": "railway", "type": "station", "importance": 0.5, "osm_type": "node", "osm_id": 1},
+                          {"lat": "26.93", "lon": "75.70", "name": "Kanakpura", "category": "place", "type": "suburb", "importance": 0.4, "osm_type": "node", "osm_id": 2}]),
+        ("hospital", 80, [{"lat": "26.9", "lon": "75.8", "name": "hospital", "category": "amenity", "type": "hospital", "osm_type": "node", "osm_id": 3},
+                          {"lat": "26.9", "lon": "75.8", "name": "SMS Hospital", "category": "amenity", "type": "hospital", "osm_type": "way", "osm_id": 4}]),
+    ]
+    out = osm.parse_nominatim_places(rows, (26.9124, 75.7873), 10)
+    assert [c["name"] for c in out] == ["Jaipur Junction", "SMS Hospital"] and out[1]["osm_id"] == "w4"
