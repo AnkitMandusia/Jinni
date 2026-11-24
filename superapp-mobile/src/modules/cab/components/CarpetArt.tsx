@@ -4,7 +4,6 @@ import { jinniColors } from '@theme/jinni';
 
 const IDLE = require('../../../../assets/chirag_carpet_idle.png') as ImageSourcePropType;
 const TAKEOFF = require('../../../../assets/chirag_carpet_takeoff.png') as ImageSourcePropType;
-const ARRIVED = require('../../../../assets/chirag_carpet_arrived.png') as ImageSourcePropType;
 
 export type CarpetStage = 'idle' | 'takeoff' | 'arrived';
 
@@ -27,10 +26,12 @@ export const CarpetArt: React.FC<{ stage: CarpetStage; height?: number; lift?: n
     return () => { a.stop(); b.stop(); };
   }, [bob, aura]);
 
-  const src = stage === 'arrived' ? ARRIVED : stage === 'takeoff' ? TAKEOFF : IDLE;
+  // NOTE: chirag_carpet_arrived.png has no alpha channel (a checkerboard is baked into the pixels),
+  // so the glowing 'takeoff' art is used for every airborne/landed state instead.
+  const src = stage === 'idle' ? IDLE : TAKEOFF;
   return (
     <View style={[styles.wrap, { height }]}>
-      <Animated.View style={[styles.aura, { opacity: aura.interpolate({ inputRange: [0, 1], outputRange: [0.12, 0.3] }) }]} />
+      <Animated.View style={[styles.aura, { opacity: aura.interpolate({ inputRange: [0, 1], outputRange: [0.05, 0.16] }) }]} />
       <Animated.Image
         source={src}
         resizeMode="contain"
@@ -43,6 +44,6 @@ export const CarpetArt: React.FC<{ stage: CarpetStage; height?: number; lift?: n
 
 const styles = StyleSheet.create({
   wrap: { width: '100%', alignItems: 'center', justifyContent: 'center' },
-  aura: { position: 'absolute', width: 220, height: 120, borderRadius: 120, backgroundColor: jinniColors.gold[300] },
+  aura: { position: 'absolute', width: 260, height: 150, borderRadius: 130, backgroundColor: jinniColors.gold[200] },
   img: { width: '100%', height: '100%' },
 });
