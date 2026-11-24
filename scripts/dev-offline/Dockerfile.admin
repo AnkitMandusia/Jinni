@@ -1,0 +1,4 @@
+# Dev-only: Docker VM has no internet, so build the SPA on the host and just package it with nginx.
+FROM nginx:1.27-alpine
+COPY nginx.conf /etc/nginx/conf.d/default.conf
+COPY dist /usr/share/nginx/html

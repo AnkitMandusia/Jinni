@@ -1,0 +1,9 @@
+# Dev-only: Docker VM has no internet, so reuse the already-built image (deps + apt packages) and swap in the new code.
+FROM jinni-api-base:offline
+USER root
+COPY alembic.ini ./
+COPY alembic ./alembic
+COPY app ./app
+COPY scripts ./scripts
+RUN chown -R appuser /app
+USER appuser
