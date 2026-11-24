@@ -7,6 +7,8 @@ from app.admin.endpoints.orders import router as orders_router
 from app.admin.endpoints.restaurants import router as restaurants_router
 from app.admin.endpoints.rides import router as rides_router
 from app.admin.endpoints.insights import router as insights_router
+from app.admin.endpoints.finance import router as finance_router
+from app.admin.endpoints.stores import router as stores_router
 
 router = APIRouter(prefix="/admin")
 
@@ -16,3 +18,5 @@ router.include_router(orders_router)
 router.include_router(restaurants_router)
 router.include_router(rides_router)
 router.include_router(insights_router)
+router.include_router(finance_router)
+router.include_router(stores_router)

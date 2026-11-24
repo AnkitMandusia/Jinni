@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Layout, Menu, Avatar, Dropdown, Typography, Space, Drawer, Button } from 'antd';
-import { WalletOutlined, ShopOutlined, TagsOutlined, DashboardOutlined, UserOutlined, ShoppingOutlined, CarOutlined, LogoutOutlined, MenuFoldOutlined, MenuUnfoldOutlined, AppstoreOutlined, SettingOutlined, MenuOutlined, HomeOutlined, ThunderboltOutlined } from '@ant-design/icons';
+import { BankOutlined, WalletOutlined, ShopOutlined, TagsOutlined, DashboardOutlined, UserOutlined, ShoppingOutlined, CarOutlined, LogoutOutlined, MenuFoldOutlined, MenuUnfoldOutlined, AppstoreOutlined, SettingOutlined, MenuOutlined, HomeOutlined, ThunderboltOutlined } from '@ant-design/icons';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuthStore } from '../store/authStore';
 import { getSosCount } from '../api/admin';
@@ -36,8 +36,10 @@ export const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
   ] : [
     { key: '/admin', icon: <DashboardOutlined />, label: 'Overview' },
     { key: '/orders', icon: <ShoppingOutlined />, label: 'Orders' },
-    { key: '/payments', icon: <WalletOutlined />, label: 'Payments' },
+    { key: '/finance', icon: <BankOutlined />, label: 'Finance' },
+    { key: '/payments', icon: <WalletOutlined />, label: 'Payment records' },
     { key: '/restaurants', icon: <ShopOutlined />, label: 'Restaurants' },
+    { key: '/stores', icon: <AppstoreOutlined />, label: 'Stores' },
     { key: '/products', icon: <TagsOutlined />, label: 'Grocery Products' },
     { key: '/rides', icon: <ThunderboltOutlined />, label: 'Rides' },
     { key: '/delivery', icon: <CarOutlined />, label: 'Delivery Agents' },

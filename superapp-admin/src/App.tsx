@@ -13,6 +13,8 @@ import { PartnerDashboardPage } from './pages/partners/PartnerDashboardPage';
 import { PaymentsPage } from './pages/payments/PaymentsPage';
 import { RestaurantsPage } from './pages/restaurants/RestaurantsPage';
 import { ProductListPage as ProductList } from './pages/grocery/ProductList';
+import { StoresPage } from './pages/stores/StoresPage';
+import { FinancePage } from './pages/finance/FinancePage';
 
 const roleHome = (role?: string) => {
   const value = (role || '').toLowerCase();
@@ -51,6 +53,8 @@ const AppRoutes: React.FC = () => {
     <Route path="/admin" element={<ProtectedRoute roles={['admin','super_admin']}><DashboardPage /></ProtectedRoute>} />
     <Route path="/users" element={<ProtectedRoute roles={['admin','super_admin']}><UsersPage /></ProtectedRoute>} />
     <Route path="/orders" element={<ProtectedRoute roles={['admin','super_admin']}><OrdersPage /></ProtectedRoute>} />
+    <Route path="/stores" element={<ProtectedRoute roles={['admin','super_admin']}><StoresPage /></ProtectedRoute>} />
+    <Route path="/finance" element={<ProtectedRoute roles={['admin','super_admin']}><FinancePage /></ProtectedRoute>} />
     <Route path="/payments" element={<ProtectedRoute roles={['admin','super_admin']}><PaymentsPage /></ProtectedRoute>} />
     <Route path="/restaurants" element={<ProtectedRoute roles={['admin','super_admin']}><RestaurantsPage /></ProtectedRoute>} />
     <Route path="/products" element={<ProtectedRoute roles={['admin','super_admin']}><ProductList /></ProtectedRoute>} />

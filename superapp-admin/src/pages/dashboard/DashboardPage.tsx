@@ -33,6 +33,7 @@ export const DashboardPage: React.FC = () => {
     a.open_sos > 0 && { k: 'sos', text: `${a.open_sos} open SOS`, to: '/rides?tab=sos', danger: true },
     a.pending_partners > 0 && { k: 'pp', text: `${a.pending_partners} partner${a.pending_partners > 1 ? 's' : ''} waiting for approval`, to: '/users' },
     a.refunds_pending > 0 && { k: 'rf', text: `${a.refunds_pending} refund${a.refunds_pending > 1 ? 's' : ''} to process`, to: '/payments' },
+    a.low_stock > 0 && { k: 'ls', text: `${a.low_stock} product${a.low_stock > 1 ? 's' : ''} low or out of stock`, to: '/products' },
     a.stuck_orders > 0 && { k: 'st', text: `${a.stuck_orders} order${a.stuck_orders > 1 ? 's' : ''} waiting 10+ min for a seller`, to: '/orders' },
   ].filter(Boolean) as any[];
   const tiles = [
@@ -98,6 +99,13 @@ export const DashboardPage: React.FC = () => {
         {!d.top_sellers.length && <Empty description="No seller sales yet" />}
       </div></Col>
     </Row>
+
+    {d.sla && <div className="j-panel"><h3>Service quality (SLA) <span style={{ fontSize: 12, color: J.mute, fontWeight: 500 }}>target: delivered within {d.sla.target_min} min</span></h3>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(150px,1fr))', gap: 14 }}>
+        {[['Sellers accept in', d.sla.accept_avg_min == null ? '—' : `${d.sla.accept_avg_min} min`], ['Order → delivered', d.sla.deliver_avg_min == null ? '—' : `${d.sla.deliver_avg_min} min`],
+          ['Late deliveries', d.sla.late_pct == null ? '—' : `${d.sla.late_pct}%`], ['Cancelled / rejected', d.sla.cancel_pct == null ? '—' : `${d.sla.cancel_pct}%`]].map(([l, v]) =>
+          <div key={String(l)}><div style={{ fontSize: 12, color: J.mute }}>{l}</div><div style={{ fontSize: 22, fontWeight: 800, color: J.p700 }}>{v}</div></div>)}
+      </div></div>}
 
     <div className="j-panel"><h3>Latest orders <a style={{ fontSize: 13, fontWeight: 600 }} onClick={() => nav('/orders')}>See all →</a></h3>
       {d.recent_orders.map((o: any) => <div className="j-row" key={o.id} style={{ flexWrap: 'wrap' }}>

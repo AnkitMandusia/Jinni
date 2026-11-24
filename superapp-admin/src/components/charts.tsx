@@ -39,7 +39,7 @@ export const StackedBars: React.FC<{ data: Record<string, any>[]; series: BarSer
           {series.map((s, si) => { const v = Number(d[s.key]) || 0; const y0 = y(acc), y1 = y(acc + v); acc += v;
             return v > 0 ? <rect key={s.key} x={x} y={y1} width={w} height={Math.max(0, y0 - y1)} rx={si === series.length - 1 ? 5 : 0} fill={s.color} opacity={hover === null || hover === i ? 1 : 0.45}>
               <animate attributeName="height" from="0" to={Math.max(0, y0 - y1)} dur="0.6s" fill="freeze" /><animate attributeName="y" from={y0} to={y1} dur="0.6s" fill="freeze" /></rect> : null; })}
-          <text x={x + w / 2} y={H - 8} textAnchor="middle" fontSize="10" fill={hover === i ? J.p600 : J.mute} fontWeight={hover === i ? 700 : 400}>{String(d[xKey]).slice(5).replace('-', '/')}</text>
+          {(i % Math.ceil(data.length / 8) === 0 || hover === i) && <text x={x + w / 2} y={H - 8} textAnchor="middle" fontSize="10" fill={hover === i ? J.p600 : J.mute} fontWeight={hover === i ? 700 : 400}>{String(d[xKey]).slice(5).replace('-', '/')}</text>}
         </g>;
       })}
     </svg>

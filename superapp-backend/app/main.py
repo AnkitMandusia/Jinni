@@ -61,10 +61,13 @@ async def lifespan(app: FastAPI):
     # client used for normal get/set calls elsewhere).
     pubsub_redis = Redis.from_url(settings.REDIS_URL, encoding="utf-8", decode_responses=False)
     subscriber_task = asyncio.create_task(redis_subscriber_loop(pubsub_redis))
+    from app.tasks import run_forever as _bg_loop
+    bg_task = asyncio.create_task(_bg_loop(app.state.redis))  # coupons expiry, scheduled-order nudges, SLA/stock alerts
 
     yield
 
     # Shutdown
+    bg_task.cancel()
     subscriber_task.cancel()
     try:
         await subscriber_task
@@ -122,6 +125,8 @@ app.include_router(paytm_router, prefix="/api/v1")
 app.include_router(support_router, prefix="/api/v1")
 app.include_router(rides_router, prefix="/api/v1")  # bike-taxi rides
 app.include_router(engagement_router, prefix="/api/v1")  # wallet, referral, shopping lists
+from app.modules.registry_router import router as modules_router
+app.include_router(modules_router, prefix="/api/v1")  # service-module registry
 app.include_router(admin_router,    prefix="/api/v1")
 app.include_router(jinni_router, prefix="/api/v1")  # Jinni AI sessions
 app.include_router(webhook_router, prefix="/api/v1")  # Meta WhatsApp + SMS webhooks

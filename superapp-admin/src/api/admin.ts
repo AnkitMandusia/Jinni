@@ -117,3 +117,19 @@ export const manualCompleteOrder = (id: string, reason: string) => api.post(`/ad
 export const getPaymentsLedger = (params: Record<string, unknown> = {}) => api.get('/admin/insights/payments', { params });
 export const getAdminRestaurants = (params: Record<string, unknown> = {}) => api.get('/admin/restaurants', { params });
 export const restaurantAction = (id: string, action: 'verify' | 'reject' | 'activate' | 'deactivate') => api.post(`/admin/restaurants/${id}/${action}`);
+
+// ── Finance & stores ─────────────────────────────────────────────────────────
+export const getFinanceOverview = (days = 30) => api.get('/admin/finance/overview', { params: { days } });
+export const getFinanceParties = (params: Record<string, unknown> = {}) => api.get('/admin/finance/parties', { params });
+export const getPartyStatement = (id: string) => api.get(`/admin/finance/parties/${id}/statement`);
+export const createFinanceEntry = (payload: Record<string, unknown>) => api.post('/admin/finance/entries', payload);
+export const getFinanceEntries = (params: Record<string, unknown> = {}) => api.get('/admin/finance/entries', { params });
+export const getFinanceSettings = () => api.get('/admin/finance/settings');
+export const saveFinanceSettings = (payload: Record<string, unknown>) => api.put('/admin/finance/settings', payload);
+export const getOnlinePayments = (days = 30) => api.get('/admin/finance/online', { params: { days } });
+export const getAdminStores = (params: Record<string, unknown> = {}) => api.get('/admin/stores', { params });
+export const getAdminStore = (id: string) => api.get(`/admin/stores/${id}`);
+export const patchAdminStore = (id: string, payload: Record<string, unknown>) => api.patch(`/admin/stores/${id}`, payload);
+export const storeAction = (id: string, action: 'verify' | 'reject' | 'suspend' | 'reactivate') => api.post(`/admin/stores/${id}/${action}`);
+export const adjustStock = (id: string, delta: number, reason: string) => api.put(`/admin/catalog/products/${id}/stock`, { delta, reason });
+export const getStockLog = (id: string) => api.get(`/admin/catalog/products/${id}/stock-log`);

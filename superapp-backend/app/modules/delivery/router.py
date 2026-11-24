@@ -174,7 +174,7 @@ async def get_dashboard(
     from app.modules.rides.router import ride_block_reason
     rides_today = (await db.execute(select(Ride).where(
         Ride.rider_id == user.id, Ride.status == RideStatus.COMPLETED, Ride.completed_at >= today_start))).scalars().all()
-    ride_earnings = float(sum(ride_service.total_payable(r) for r in rides_today))
+    ride_earnings = float(sum((r.rider_amount if r.rider_amount is not None else r.fare) for r in rides_today))  # net of platform commission
     ride_cash = float(sum(ride_service.total_payable(r) for r in rides_today
                           if r.payment_method == "cash" and r.payment_status == "paid"))
     active_ride = (await db.execute(select(Ride).where(
@@ -488,7 +488,7 @@ async def get_earnings(
     )
     orders = result.scalars().all()
 
-    total_earnings = sum(float(o.delivery_fee or 0) for o in orders)
+    total_earnings = sum(float(o.rider_amount if o.rider_amount is not None else (o.delivery_fee or 0)) for o in orders)
     cod_collected = sum(float(o.total_amount or 0) for o in orders if str(o.payment_method) == "cod")
 
     return {
@@ -501,7 +501,7 @@ async def get_earnings(
                 "id": str(o.id),
                 "order_number": o.order_number,
                 "total_amount": float(o.total_amount),
-                "delivery_fee": float(o.delivery_fee or 0),
+                "delivery_fee": float(o.rider_amount if o.rider_amount is not None else (o.delivery_fee or 0)),
                 "payment_method": str(o.payment_method),
                 "delivered_at": o.delivered_at.isoformat() if o.delivered_at else None,
             }

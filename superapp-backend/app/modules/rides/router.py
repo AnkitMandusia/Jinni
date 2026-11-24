@@ -606,6 +606,8 @@ async def rider_complete(ride_id: UUID, body: CompleteRequest, user: User = Depe
     ride, s = await _rider_step(db, user, ride_id, RideStatus.COMPLETED, "completed_at")
     if body.payment_received:
         _mark_paid(ride, user.id, body.payment_ref)
+    from app.modules.finance.service import snapshot_ride
+    await snapshot_ride(db, ride)  # freeze commission / rider amount
     await db.commit()
     await notify(db, ride.customer_id, "Ride completed ✨",
                  f"Total ₹{service.total_payable(ride):.0f}" + (" — please pay by UPI." if ride.payment_method == "upi"

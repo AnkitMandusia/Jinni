@@ -5,13 +5,14 @@ from typing import Optional
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query
+from pydantic import BaseModel, Field
 from sqlalchemy import and_, case, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_db
 from app.dependencies import require_role
 from app.modules.food.models import Restaurant
-from app.modules.grocery.models import Category, Product
+from app.modules.grocery.models import Category, Product, StockAdjustment
 from app.modules.orders.models import Order, OrderItem
 from app.modules.rides.models import Ride, RideSOS
 from app.modules.users.models import StoreProfile, User
@@ -20,6 +21,7 @@ router = APIRouter(tags=["admin-insights"])
 
 IST = timezone(timedelta(hours=5, minutes=30))
 DEAD = ("cancelled", "rejected", "no_store_available")
+SLA_DELIVERY_MIN = 60  # target: delivered within an hour of ordering (non-scheduled orders)
 
 
 def _f(x) -> float:
@@ -112,8 +114,26 @@ async def overview(days: int = Query(7, ge=1, le=60), db: AsyncSession = Depends
     stuck = (await db.execute(select(func.count()).select_from(Order).where(Order.status.in_(("pending_dispatch", "no_store_available")),
                                                                             Order.created_at < datetime.utcnow() - timedelta(minutes=10)))).scalar() or 0
 
+    free = Product.stock_quantity - Product.reserved_quantity
+    low_stock = (await db.execute(select(func.count()).select_from(Product).where(Product.is_active == True, free <= Product.low_stock_threshold))).scalar() or 0  # noqa: E712
+
+    # SLA: how fast sellers accept and how long delivery takes (finished orders in the period)
+    def mins(a, b):
+        return func.avg(func.extract("epoch", a - b) / 60.0)
+    accept_avg = (await db.execute(select(mins(Order.accepted_at, Order.created_at)).where(Order.created_at >= since, Order.accepted_at.isnot(None)))).scalar()
+    deliver_avg = (await db.execute(select(mins(Order.delivered_at, Order.created_at)).where(Order.created_at >= since, Order.delivered_at.isnot(None), Order.scheduled_for.is_(None)))).scalar()
+    delivered_n = (await db.execute(select(func.count()).select_from(Order).where(Order.created_at >= since, Order.delivered_at.isnot(None), Order.scheduled_for.is_(None)))).scalar() or 0
+    late_n = (await db.execute(select(func.count()).select_from(Order).where(Order.created_at >= since, Order.delivered_at.isnot(None), Order.scheduled_for.is_(None),
+                                                                              func.extract("epoch", Order.delivered_at - Order.created_at) > SLA_DELIVERY_MIN * 60))).scalar() or 0
+    cancelled_n = (await db.execute(select(func.count()).select_from(Order).where(Order.created_at >= since, Order.status.in_(("cancelled", "rejected", "no_store_available"))))).scalar() or 0
+    total_n = (await db.execute(select(func.count()).select_from(Order).where(Order.created_at >= since))).scalar() or 0
+
     return {
         "days": days,
+        "sla": {"accept_avg_min": round(float(accept_avg), 1) if accept_avg is not None else None,
+                "deliver_avg_min": round(float(deliver_avg), 1) if deliver_avg is not None else None,
+                "late_pct": round(100 * late_n / delivered_n, 1) if delivered_n else None, "target_min": SLA_DELIVERY_MIN,
+                "cancel_pct": round(100 * cancelled_n / total_n, 1) if total_n else None, "delivered": delivered_n},
         "today": {**await order_agg(today), **await ride_agg(today)},
         "period": {**await order_agg(since), **await ride_agg(since)},
         "series": series,
@@ -127,7 +147,7 @@ async def overview(days: int = Query(7, ge=1, le=60), db: AsyncSession = Depends
         "recent_orders": [{"id": str(o.id), "order_number": o.order_number, "order_type": str(o.order_type), "status": str(o.status),
                            "total_amount": _f(o.total_amount), "payment_method": str(o.payment_method), "payment_status": str(o.payment_status),
                            "seller": rnames.get(o.store_id, "—"), "created_at": o.created_at.isoformat()} for o in recent],
-        "attention": {"pending_partners": pending_partners, "refunds_pending": refunds, "open_sos": open_sos, "stuck_orders": stuck},
+        "attention": {"low_stock": low_stock, "pending_partners": pending_partners, "refunds_pending": refunds, "open_sos": open_sos, "stuck_orders": stuck},
         "users_total": users_total,
     }
 
@@ -276,3 +296,34 @@ async def catalog_products(
             "image_urls": p.image_urls or [],
         })
     return {"items": out, "total": total, "page": page, "page_size": page_size}
+
+
+class StockIn(BaseModel):
+    delta: int = Field(..., ge=-100000, le=100000)
+    reason: str = Field(..., min_length=3, max_length=300)
+
+
+@router.put("/catalog/products/{product_id}/stock")
+async def adjust_stock(product_id: UUID, body: StockIn, db: AsyncSession = Depends(get_db), admin: User = Depends(require_role("admin"))):
+    """Add (+) or remove (−) units with a mandatory reason; every change is written to stock_adjustments."""
+    if body.delta == 0:
+        raise HTTPException(400, "Delta cannot be zero")
+    p = (await db.execute(select(Product).where(Product.id == product_id).with_for_update())).scalar_one_or_none()
+    if not p:
+        raise HTTPException(404, "Product not found")
+    after = p.stock_quantity + body.delta
+    if after < 0:
+        raise HTTPException(409, f"Only {p.stock_quantity} in stock — cannot remove {-body.delta}")
+    if after < (p.reserved_quantity or 0):
+        raise HTTPException(409, f"{p.reserved_quantity} units are reserved by open orders; stock cannot go below that")
+    db.add(StockAdjustment(product_id=p.id, delta=body.delta, before_qty=p.stock_quantity, after_qty=after, reason=body.reason.strip(), admin_id=admin.id))
+    p.stock_quantity = after
+    await db.commit()
+    return {"id": str(p.id), "stock_quantity": after, "reserved_quantity": p.reserved_quantity}
+
+
+@router.get("/catalog/products/{product_id}/stock-log")
+async def stock_log(product_id: UUID, db: AsyncSession = Depends(get_db), admin: User = Depends(require_role("admin"))):
+    rows = (await db.execute(select(StockAdjustment).where(StockAdjustment.product_id == product_id).order_by(StockAdjustment.created_at.desc()).limit(30))).scalars().all()
+    names = await _names(db, {r.admin_id for r in rows})
+    return {"log": [{"at": r.created_at.isoformat(), "delta": r.delta, "before": r.before_qty, "after": r.after_qty, "reason": r.reason, "by": names.get(r.admin_id, "—")} for r in rows]}

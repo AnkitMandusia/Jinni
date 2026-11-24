@@ -504,6 +504,8 @@ class OrderService:
             if str(order.payment_method) == "cod" and str(order.payment_status) == "pending":
                 order.payment_status = "paid"  # the rider collected the cash at the door
             await engagement.on_order_delivered(db, order)
+            from app.modules.finance.service import snapshot_order
+            await snapshot_order(db, order)  # freeze commission / seller / rider amounts
             # Explicit query: `order.items` would lazy-load inside async code (MissingGreenlet -> HTTP 500,
             # which made every OTP delivery fail).
             items = (await db.execute(select(OrderItem).where(OrderItem.order_id == order.id))).scalars().all()
@@ -629,6 +631,8 @@ class OrderService:
                 and_(
                     Order.status == OrderStatus.PENDING_DISPATCH.value,
                     Order.delivery_pincode == store_pincode,
+                    # scheduled orders appear 45 min before the slot (see app/tasks.py), not days ahead
+                    or_(Order.scheduled_for.is_(None), Order.scheduled_for <= datetime.utcnow() + timedelta(minutes=45)),
                     # food orders belong to their restaurant, never to a grocery store's queue
                     Order.order_type == OrderType.GROCERY.value,
                 )

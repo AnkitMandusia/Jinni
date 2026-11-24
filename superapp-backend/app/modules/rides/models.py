@@ -166,6 +166,8 @@ class Ride(Base):
     accepted_at = Column(DateTime, nullable=True)
     arrived_at = Column(DateTime, nullable=True)
     started_at = Column(DateTime, nullable=True)
+    commission_amount = Column(Numeric(8, 2), nullable=True)  # platform commission, frozen at completion
+    rider_amount = Column(Numeric(8, 2), nullable=True)       # fare minus commission
     completed_at = Column(DateTime, nullable=True)
     cancelled_at = Column(DateTime, nullable=True)
     cancelled_by = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=True)
