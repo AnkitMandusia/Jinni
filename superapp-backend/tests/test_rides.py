@@ -426,7 +426,7 @@ def test_riders_nearby_counts_only_fresh_and_within_radius():
         _rider("bike", 26.9196, 75.7878),                           # ~4 km  -> in
         _rider("bike", 28.6139, 77.2090),                           # Delhi  -> out
         _rider("auto", 26.9200, 75.8300),                           # ~0.5 km -> in
-        _rider("cab", 26.9230, 75.8270, age_s=600),                 # stale (10 min) -> out
+        _rider("cab", 26.9230, 75.8270, age_s=900),                 # stale (15 min) -> out
         DeliveryAgentProfile(name="X", vehicle_class="cab"),        # never reported a location -> out
         _rider(None, 26.9230, 75.8270),                             # no vehicle class -> out
     ]
