@@ -53,24 +53,42 @@ export function useRiderRidePolling() {
 }
 
 const LOCATION_MS = 15_000;
-const PRESENCE_MS = 60_000;
+const PRESENCE_CHECK_MS = 120_000;   // how often we glance at the phone's last known position
+const PRESENCE_MOVED_M = 300;        // ...and only tell the server if the rider moved this far
+const PRESENCE_HEARTBEAT_MS = 8 * 60_000; // ...or every 8 min, so "online & around" stays fresh (server window: 10 min)
+
+function metersBetween(a: { lat: number; lng: number }, b: { lat: number; lng: number }) {
+  const R = 6371000, rad = Math.PI / 180;
+  const dLat = (b.lat - a.lat) * rad, dLng = (b.lng - a.lng) * rad;
+  const h = Math.sin(dLat / 2) ** 2 + Math.cos(a.lat * rad) * Math.cos(b.lat * rad) * Math.sin(dLng / 2) ** 2;
+  return 2 * R * Math.asin(Math.sqrt(h));
+}
 
 /**
  * Free "live location" for the customer: while this partner has an active ride, send the phone's GPS every
  * 15 s (foreground only). The server keeps just the latest point, shows the customer a distance/ETA (no map
  * tiles), and ignores updates when there is no active ride.
  */
+/** Auto/cab partners are ride-only: no Orders tab, no delivery requests. Defaults to allowed until known. */
+export const useDeliveryEligibility = createStore<{ allowed: boolean; set: (v: boolean) => void }>('delivery-eligibility', (set: any) => ({
+  allowed: true,
+  set: (allowed: boolean) => set({ allowed }),
+}));
+
 export function useRideLocationSharing() {
   const active = useRiderRides((s) => s.active);
   const online = useRiderRides((s) => s.online);
   const rideId = active?.id;
-  // On a ride: every 15 s (customer ETA). Just online: every 60 s (so customers see this vehicle type is nearby).
+  // On a ride: every 15 s (customer ETA). Just online: a cheap check every 2 min that only reports a real move
+  // (300 m+) or an 8-min heartbeat — ~7 tiny requests/hour instead of 60+.
   const sharing = !!rideId || online;
-  const everyMs = rideId ? LOCATION_MS : PRESENCE_MS;
+  const everyMs = rideId ? LOCATION_MS : PRESENCE_CHECK_MS;
   useEffect(() => {
     if (!sharing) return;
     let stopped = false;
     let warned = false;
+    let last: { lat: number; lng: number; at: number } | null = null;
+    const onRide = !!rideId;
     const send = async () => {
       try {
         let perm = await Location.getForegroundPermissionsAsync();
@@ -79,8 +97,12 @@ export function useRideLocationSharing() {
           if (!warned) { warned = true; Alert.alert('Location off', 'Turn on location so nearby customers can find you and see how far you are.'); }
           return;
         }
-        const pos = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
-        if (!stopped) await rideService.riderLocation(pos.coords.latitude, pos.coords.longitude);
+        const pos = await Location.getCurrentPositionAsync({ accuracy: onRide ? Location.Accuracy.Balanced : Location.Accuracy.Low });
+        const cur = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+        const quiet = !onRide && last && Date.now() - last.at < PRESENCE_HEARTBEAT_MS && metersBetween(last, cur) < PRESENCE_MOVED_M;
+        if (quiet || stopped) return;
+        await rideService.riderLocation(cur.lat, cur.lng);
+        last = { ...cur, at: Date.now() };
       } catch { /* try again next tick */ }
     };
     void send();

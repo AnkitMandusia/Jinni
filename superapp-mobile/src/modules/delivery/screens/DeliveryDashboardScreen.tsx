@@ -1,3 +1,4 @@
+import { useDeliveryEligibility } from '../store/riderRideStore';
 import React, { useState, useCallback } from 'react';
 import {
   View,
@@ -27,7 +28,7 @@ interface DashboardData {
   vehicle_number?: string | null;
   active_orders: ActiveOrder[];
   active_ride?: { id: string; ride_number: string; status: string; pickup: string; drop: string; fare: number } | null;
-  preferences?: { take_deliveries: boolean; take_rides: boolean; rides_allowed_by_admin: boolean; ride_blocked_reason?: string | null };
+  preferences?: { deliveries_allowed?: boolean; take_deliveries: boolean; take_rides: boolean; rides_allowed_by_admin: boolean; ride_blocked_reason?: string | null };
   today_stats: {
     orders_count: number;
     earnings: number;
@@ -77,6 +78,7 @@ export const DeliveryDashboardScreen: React.FC = () => {
     try {
       const res = await api.get<DashboardData>('/delivery/dashboard');
       setData(res);
+      useDeliveryEligibility.getState().set(res.preferences?.deliveries_allowed !== false);
     } catch (e: any) {
       console.error('Dashboard error:', e?.response?.data || e?.message);
     } finally {
@@ -184,6 +186,14 @@ export const DeliveryDashboardScreen: React.FC = () => {
         {data?.preferences && (
           <View style={styles.prefCard}>
             <Text style={styles.prefTitle}>What I’ll take</Text>
+            {data.preferences.deliveries_allowed === false ? (
+              <View style={styles.prefRow}>
+                <Ionicons name="information-circle-outline" size={20} color={colors.gray[500]} />
+                <Text style={[styles.prefName, { flex: 1, marginLeft: 10, color: colors.gray[600] }]}>
+                  Food & grocery deliveries are for bike partners. Your {data.vehicle_class === 'cab' ? 'cab' : 'auto'} takes Jinni Carpet rides only.
+                </Text>
+              </View>
+            ) : (
             <View style={styles.prefRow}>
               <Ionicons name="bag-handle-outline" size={20} color={colors.primary[500]} />
               <View style={{ flex: 1, marginLeft: 10 }}>
@@ -194,6 +204,7 @@ export const DeliveryDashboardScreen: React.FC = () => {
                   trackColor={{ false: colors.gray[300], true: colors.success.light }} thumbColor={data.preferences.take_deliveries ? colors.success.DEFAULT : colors.gray[400]} />
               )}
             </View>
+            )}
             <View style={styles.prefRow}>
               <Ionicons name="sparkles-outline" size={20} color="#5E2FB8" />
               <View style={{ flex: 1, marginLeft: 10 }}>
@@ -254,7 +265,7 @@ export const DeliveryDashboardScreen: React.FC = () => {
         )}
 
         {/* Find Available Orders — always visible when online */}
-        {isOnline && (data?.preferences?.take_deliveries ?? true) && !data?.active_ride && (
+        {isOnline && (data?.preferences?.take_deliveries ?? true) && data?.preferences?.deliveries_allowed !== false && !data?.active_ride && (
           <TouchableOpacity
             style={styles.findOrdersCard}
             onPress={() => navigation.navigate('Orders')}

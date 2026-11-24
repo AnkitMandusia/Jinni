@@ -146,7 +146,7 @@ async def online_rider_count(db: AsyncSession, vehicle_class: Optional[str] = No
     return int((await db.execute(q)).scalar() or 0)
 
 
-PRESENCE_FRESH_MINUTES = 5  # a rider counts as "around" only if their phone reported a location this recently
+PRESENCE_FRESH_MINUTES = 10  # a rider counts as "around" only if their phone reported a location this recently
 
 
 def riders_nearby(profiles, lat: float, lng: float, radius_km: float, now: Optional[datetime] = None) -> dict[str, int]:

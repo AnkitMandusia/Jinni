@@ -450,3 +450,11 @@ async def test_rider_location_ignored_when_offline_and_idle(monkeypatch):
     monkeypatch.setattr(service, "rider_has_active_ride", AsyncMock(return_value=False))
     out = await rr.rider_location(rr.LocationRequest(lat=26.9, lng=75.8), User(id=uuid4(), role="delivery"), MagicMock())
     assert out == {"ok": False} and prof.current_lat is None
+
+
+def test_only_bike_partners_get_deliveries():
+    from app.modules.delivery.router import deliveries_allowed
+    assert deliveries_allowed(DeliveryAgentProfile(name="a", vehicle_class="bike"))
+    assert deliveries_allowed(DeliveryAgentProfile(name="a"))            # legacy partner, no class yet
+    assert not deliveries_allowed(DeliveryAgentProfile(name="a", vehicle_class="auto"))
+    assert not deliveries_allowed(DeliveryAgentProfile(name="a", vehicle_class="cab"))

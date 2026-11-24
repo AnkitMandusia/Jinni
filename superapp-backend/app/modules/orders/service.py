@@ -547,6 +547,8 @@ class OrderService:
                     User.status == "active",
                     DeliveryAgentProfile.is_available == True,
                     DeliveryAgentProfile.take_deliveries == True,
+                    # food/grocery run on two-wheelers only; auto and cab partners are ride-only
+                    or_(DeliveryAgentProfile.vehicle_class.is_(None), DeliveryAgentProfile.vehicle_class == "bike"),
                 )
             )
         )
