@@ -235,6 +235,8 @@ class SettingsBody(BaseModel):
     service_lng: Optional[float] = Field(None, ge=-180, le=180)
     service_radius_km: Optional[Decimal] = Field(None, gt=0, le=200)
     sos_helpline: str = Field("112", pattern=r"^\d{2,6}$")
+    nearby_radius_km: Decimal = Field(Decimal("6.0"), ge=1, le=50)
+    require_nearby_rider: bool = True
 
     @field_validator("boost_options")
     @classmethod
@@ -262,6 +264,7 @@ async def _settings_out(db: AsyncSession, s: RideSettings) -> dict:
         "avg_speed_kmph": s.avg_speed_kmph, "service_lat": s.service_lat, "service_lng": s.service_lng,
         "service_radius_km": float(s.service_radius_km) if s.service_radius_km is not None else None,
         "sos_helpline": s.sos_helpline,
+        "nearby_radius_km": float(s.nearby_radius_km), "require_nearby_rider": bool(s.require_nearby_rider),
         "fares": [_fare_out(fares[c]) for c in VEHICLE_CLASSES],
         "current_multipliers": {c: dict(zip(("multiplier", "reason"), map(lambda x: float(x) if isinstance(x, Decimal) else x,
                                                                           await service.multiplier_now(db, s, c)))) for c in VEHICLE_CLASSES},
@@ -438,6 +441,7 @@ def _partner_out(u: User, p: DeliveryAgentProfile, *, done: int, on_ride: bool, 
         "id": str(u.id), "name": p.name, "phone": u.phone, "email": u.email, "account_status": u.status,
         "created_at": u.created_at.isoformat() if u.created_at else None,
         "online": bool(p.is_available), "ride_enabled": bool(p.ride_enabled), "upi_id": p.upi_id,
+        "last_seen": p.last_location_at.isoformat() if p.last_location_at else None,
         "state": "on_ride" if on_ride else "on_delivery" if busy else "idle", "completed_rides": done,
         "rating": p.rating, "rating_count": p.rating_count,
         "vehicle_class": p.vehicle_class, "vehicle_type": p.vehicle_type, "vehicle_number": p.vehicle_number,

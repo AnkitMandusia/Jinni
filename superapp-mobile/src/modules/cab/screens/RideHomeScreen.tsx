@@ -10,10 +10,10 @@ import { fontFamily } from '@theme/typography';
 import { CarpetArt } from '../components/CarpetArt';
 import { FareReveal } from '../components/FareReveal';
 import { InfoTip } from '../components/InfoTip';
-import { carpetsLine, vehicleFreeLabel } from '../carpetsLine';
+import { nearbyLabel } from '../carpetsLine';
 import { rideError, rideService } from '../services/rideService';
 import { useRideDraft } from '../store/rideDraftStore';
-import { PayMethod, Quote, Ride, RideConfig, RidePlace, VehicleClass } from '../types';
+import { Availability, PayMethod, Quote, Ride, RideConfig, RidePlace, VehicleClass } from '../types';
 
 // The ride flow is a Jinni moment by design (user request: "full Jinni style"), so it uses the
 // scoped Jinni palette instead of the generic cab blue.
@@ -30,6 +30,7 @@ export const RideHomeScreen: React.FC = () => {
   const [active, setActive] = useState<Ride | null>(null);
   const [quotes, setQuotes] = useState<QuoteMap>({});
   const [quoteError, setQuoteError] = useState('');
+  const [avail, setAvail] = useState<Availability | null>(null);
   const [quoting, setQuoting] = useState(false);
   const [booking, setBooking] = useState(false);
   const here = useRef<{ lat: number; lng: number } | null>(null);
@@ -66,6 +67,29 @@ export const RideHomeScreen: React.FC = () => {
     return () => { alive = false; };
   }, [setPickup]));
 
+  // Which vehicle types have a rider NEAR THE PICKUP right now. Others are faded out.
+  useEffect(() => {
+    setAvail(null);
+    if (!pickup) return;
+    let alive = true;
+    const load = () => rideService.availability(pickup.lat, pickup.lng).then((a) => alive && setAvail(a)).catch(() => undefined);
+    void load();
+    const t = setInterval(load, 20000); // riders come and go
+    return () => { alive = false; clearInterval(t); };
+  }, [pickup]);
+
+  const isAvailable = useCallback((vc: VehicleClass) => {
+    if (!avail) return true; // unknown yet — don't flash everything grey
+    return avail.vehicles.find((v) => v.vehicle_class === vc)?.available ?? false;
+  }, [avail]);
+
+  // If the chosen vehicle has nobody nearby, move to one that does.
+  useEffect(() => {
+    if (!avail || isAvailable(vehicle)) return;
+    const next = avail.vehicles.find((v) => v.enabled && v.available);
+    if (next) setVehicle(next.vehicle_class);
+  }, [avail, vehicle, isAvailable, setVehicle]);
+
   // Re-quote every enabled vehicle when both ends are chosen. Stale responses are dropped.
   useEffect(() => {
     setQuotes({});
@@ -96,6 +120,7 @@ export const RideHomeScreen: React.FC = () => {
   };
 
   const quote = quotes[vehicle];
+  const noneNearby = !!avail && avail.vehicles.filter((v) => v.enabled).every((v) => !v.available);
   const vinfo = config?.vehicles.find((v) => v.vehicle_class === vehicle);
 
   const book = async () => {
@@ -107,7 +132,10 @@ export const RideHomeScreen: React.FC = () => {
       navigation.navigate('ActiveRide', { rideId: ride.id });
     } catch (e: any) {
       const d = e?.response?.data?.detail;
-      if (d?.code === 'fare_changed') {
+      if (d?.code === 'no_rider_nearby') {
+        Alert.alert('No rider nearby', d.message);
+        if (pickup) rideService.availability(pickup.lat, pickup.lng).then(setAvail).catch(() => undefined);
+      } else if (d?.code === 'fare_changed') {
         setQuotes((q) => ({ ...q, [vehicle]: { ...quote, fare: d.fare, total_payable: d.fare + quote.dues_amount } }));
         Alert.alert('Fare updated', d.message);
       } else {
@@ -120,7 +148,7 @@ export const RideHomeScreen: React.FC = () => {
 
   const paused = !!config && !config.enabled;
   const outside = config?.service_area?.inside === false;
-  const canBook = !!quote && !booking && !paused;
+  const canBook = !!quote && !booking && !paused && isAvailable(vehicle);
 
   return (
     <View style={styles.root}>
@@ -138,9 +166,15 @@ export const RideHomeScreen: React.FC = () => {
             </View>
             <CarpetArt stage="idle" height={124} />
             <Text style={styles.title}>Make a wish. Take a ride.</Text>
-            <Text style={styles.subtitle}>{carpetsLine(config?.riders_online ?? 0, paused)}</Text>
           </SafeAreaView>
         </LinearGradient>
+
+        {paused && (
+          <View style={[styles.section, styles.warnBox]}>
+            <Ionicons name="moon-outline" size={18} color="#B54708" />
+            <Text style={styles.warnText}>Carpets are resting right now. Please try again later.</Text>
+          </View>
+        )}
 
         {outside && (
           <View style={[styles.section, styles.warnBox]}>
@@ -203,20 +237,22 @@ export const RideHomeScreen: React.FC = () => {
           </View>
         )}
 
-        {!!config && !!pickup && !!drop && Object.keys(quotes).length > 0 && (
+        {!!config && !!pickup && !!drop && (Object.keys(quotes).length > 0 || !!avail) && (
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Choose your carpet</Text>
             <View style={styles.vehRow}>
               {config.vehicles.filter((v) => v.enabled).map((v) => {
                 const q = quotes[v.vehicle_class];
-                const on = vehicle === v.vehicle_class;
+                const ok = isAvailable(v.vehicle_class);
+                const on = vehicle === v.vehicle_class && ok;
                 return (
-                  <TouchableOpacity key={v.vehicle_class} style={[styles.veh, on && styles.vehOn, !q && { opacity: 0.4 }]}
-                    disabled={!q} onPress={() => setVehicle(v.vehicle_class)} activeOpacity={0.85}>
+                  <TouchableOpacity key={v.vehicle_class} style={[styles.veh, on && styles.vehOn, !ok && styles.vehOff, !q && ok && { opacity: 0.5 }]}
+                    disabled={!ok || !q} onPress={() => setVehicle(v.vehicle_class)} activeOpacity={0.85}
+                    accessibilityState={{ disabled: !ok }}>
                     <Text style={styles.vehIcon}>{VEHICLE_ICON[v.vehicle_class]}</Text>
                     <Text style={[styles.vehName, on && { color: P[700] }]}>{v.label}</Text>
-                    <Text style={styles.vehPrice}>{q ? `₹${q.fare}` : '—'}</Text>
-                    <Text style={[styles.vehFree, v.riders_online === 0 && { color: '#B54708' }]}>{vehicleFreeLabel(v.riders_online)}</Text>
+                    <Text style={styles.vehPrice}>{q && ok ? `₹${q.fare}` : '—'}</Text>
+                    <Text style={[styles.vehFree, !ok && { color: '#98A2B3' }]}>{nearbyLabel(ok)}</Text>
                   </TouchableOpacity>
                 );
               })}
@@ -224,7 +260,14 @@ export const RideHomeScreen: React.FC = () => {
           </View>
         )}
 
-        {quote && (
+        {noneNearby && (
+          <View style={[styles.section, styles.warnBox]}>
+            <Ionicons name="time-outline" size={18} color="#B54708" />
+            <Text style={styles.warnText}>No carpets are awake near this pickup right now. Try a nearby spot, or check again in a minute.</Text>
+          </View>
+        )}
+
+        {quote && isAvailable(vehicle) && (
           <View style={styles.section}>
             {quote.surge_multiplier > 1 && (
               <View style={styles.surge}>
@@ -266,7 +309,7 @@ export const RideHomeScreen: React.FC = () => {
         <TouchableOpacity disabled={!canBook} onPress={book} activeOpacity={0.9} style={{ opacity: canBook ? 1 : 0.45 }}>
           <LinearGradient colors={[G[400], G[500]]} style={styles.cta}>
             {booking ? <ActivityIndicator color={P[900]} /> : (
-              <Text style={styles.ctaText}>{quote ? `Summon my ${vinfo?.label ?? 'carpet'} · ₹${quote.total_payable.toFixed(0)}` : 'Pick pickup & drop'}</Text>
+              <Text style={styles.ctaText}>{quote && isAvailable(vehicle) ? `Summon my ${vinfo?.label ?? 'carpet'} · ₹${quote.total_payable.toFixed(0)}` : noneNearby ? 'No carpets nearby right now' : 'Pick pickup & drop'}</Text>
             )}
           </LinearGradient>
         </TouchableOpacity>
@@ -308,6 +351,7 @@ const styles = StyleSheet.create({
   vehRow: { flexDirection: 'row', gap: 10 },
   veh: { flex: 1, alignItems: 'center', paddingVertical: 12, borderRadius: 16, backgroundColor: '#fff', borderWidth: 1.5, borderColor: '#EAECF0' },
   vehOn: { borderColor: P[400], backgroundColor: P[50] },
+  vehOff: { opacity: 0.35, backgroundColor: '#F2F4F7', borderStyle: 'dashed' },
   vehIcon: { fontSize: 26 },
   vehName: { fontFamily: fontFamily.bold, fontSize: 13, color: '#344054', marginTop: 2 },
   vehPrice: { fontFamily: fontFamily.bold, fontSize: 17, color: P[800], marginTop: 2 },

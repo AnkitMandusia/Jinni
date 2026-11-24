@@ -41,7 +41,7 @@ interface Partner {
   vehicle_class?: string; vehicle_number?: string; vehicle_make_model?: string; vehicle_color?: string; license_no?: string; dob?: string;
   dl_expiry?: string; rc_expiry?: string; insurance_expiry?: string; aadhaar_last4?: string; emergency_name?: string; emergency_phone?: string;
   documents_verified: boolean; documents_verified_at?: string; kyc_issues: string[]; ride_block_reason?: string | null;
-  take_rides: boolean; take_deliveries: boolean;
+  take_rides: boolean; take_deliveries: boolean; last_seen?: string | null;
 }
 
 // ── Bookings & payments ─────────────────────────────────────────────────────
@@ -223,7 +223,7 @@ const PartnersTab: React.FC = () => {
         { title: 'Partner', key: 'n', render: (p: Partner) => <Space direction="vertical" size={0}><Text strong>{p.name}</Text><Text type="secondary" style={{ fontSize: 12 }}>{p.phone}</Text></Space> },
         { title: 'Vehicle', key: 'v', render: (p: Partner) => <Space direction="vertical" size={0}><Text>{VEHICLE_LABEL[p.vehicle_class || ''] || '—'}</Text><Text type="secondary" style={{ fontSize: 12 }}>{p.vehicle_number || 'no number'}</Text></Space> },
         { title: 'Account', key: 'a', render: stateTag },
-        { title: 'Online', dataIndex: 'online', render: (v: boolean) => <Badge status={v ? 'success' : 'default'} text={v ? 'Online' : 'Offline'} /> },
+        { title: 'Online', key: 'o', render: (p: Partner) => <Space direction="vertical" size={0}><Badge status={p.online ? 'success' : 'default'} text={p.online ? 'Online' : 'Offline'} />{p.last_seen && <Text type="secondary" style={{ fontSize: 11 }}>seen {when(p.last_seen)}</Text>}</Space> },
         { title: 'Documents', key: 'd', render: (p: Partner) => p.documents_verified ? <Tag color="green" icon={<SafetyCertificateOutlined />}>Verified</Tag> : <Tag color="orange">Not verified</Tag> },
         { title: 'Rides', dataIndex: 'completed_rides' },
         { title: 'Rating', key: 'r', render: (p: Partner) => p.rating_count ? `★ ${p.rating?.toFixed(1)} (${p.rating_count})` : '—' },
@@ -382,6 +382,8 @@ const PricingTab: React.FC = () => {
               <Col span={8}><Form.Item name="road_factor" label="Road factor" tooltip="Straight-line distance × this ≈ road distance"><InputNumber min={1} max={3} step={0.05} style={{ width: '100%' }} /></Form.Item></Col>
               <Col span={8}><Form.Item name="max_distance_km" label="Max trip (km)"><InputNumber min={1} style={{ width: '100%' }} /></Form.Item></Col>
               <Col span={8}><Form.Item name="avg_speed_kmph" label="Avg speed (km/h, for ETA)"><InputNumber min={5} max={80} style={{ width: '100%' }} /></Form.Item></Col>
+              <Col span={8}><Form.Item name="nearby_radius_km" label="Nearby rider radius (km)" tooltip="A vehicle type shows as available only if an idle, verified, online rider of that type reported a location within this distance of the pickup (in the last 5 min)."><InputNumber min={1} max={50} step={0.5} style={{ width: '100%' }} /></Form.Item></Col>
+              <Col span={16}><Form.Item name="require_nearby_rider" label="Hide vehicle types with no rider nearby" valuePropName="checked" tooltip="On (recommended): customers can't book a vehicle nobody is near. Off: always bookable; you assign manually."><Switch /></Form.Item></Col>
             </Row>
             <Form.Item name="platform_upi_id" label="Fallback UPI id" tooltip="Used when the assigned rider has no UPI id" rules={[{ pattern: /^[\w.-]{2,}@[\w.-]{2,}$/, message: 'e.g. jinni@okaxis' }]}><Input placeholder="jinni@okaxis" /></Form.Item>
           </Card>

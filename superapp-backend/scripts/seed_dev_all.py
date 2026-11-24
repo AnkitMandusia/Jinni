@@ -71,6 +71,10 @@ async def _seed_partner(db, u, a) -> None:
     p.documents_verified = not pending
     p.take_rides = p.take_deliveries = True
     p.ride_enabled = True
+    # Dev convenience: appear "nearby" in central Jaipur for 5 minutes after seeding. Real riders report their GPS
+    # while online (see riderRideStore.useRideLocationSharing); stale locations stop counting as available.
+    from datetime import datetime
+    p.current_lat, p.current_lng, p.last_location_at = 26.9124, 75.7873, (None if pending else datetime.utcnow())
     if pending:
         u.status, u.profile_complete = "pending_approval", True
 

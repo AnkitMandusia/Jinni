@@ -410,3 +410,43 @@ async def test_sos_only_for_participants_during_ride(monkeypatch):
     with pytest.raises(HTTPException) as e:
         await rr.raise_sos(ride.id, rr.SOSRequest(), User(id=cid, role="customer"), db_for(), MagicMock())
     assert e.value.status_code == 409
+
+
+# ── location-based availability ──────────────────────────────────────────────
+
+def _rider(vc, lat, lng, age_s=30):
+    return DeliveryAgentProfile(name="R", vehicle_class=vc, current_lat=lat, current_lng=lng,
+                                last_location_at=datetime.utcnow() - timedelta(seconds=age_s))
+
+
+def test_riders_nearby_counts_only_fresh_and_within_radius():
+    now = datetime.utcnow()
+    pickup = (26.9239, 75.8267)                                    # Hawa Mahal
+    riders = [
+        _rider("bike", 26.9196, 75.7878),                           # ~4 km  -> in
+        _rider("bike", 28.6139, 77.2090),                           # Delhi  -> out
+        _rider("auto", 26.9200, 75.8300),                           # ~0.5 km -> in
+        _rider("cab", 26.9230, 75.8270, age_s=600),                 # stale (10 min) -> out
+        DeliveryAgentProfile(name="X", vehicle_class="cab"),        # never reported a location -> out
+        _rider(None, 26.9230, 75.8270),                             # no vehicle class -> out
+    ]
+    out = service.riders_nearby(riders, *pickup, radius_km=6, now=now)
+    assert out == {"bike": 1, "auto": 1, "cab": 0}
+    assert service.riders_nearby(riders, *pickup, radius_km=0.1, now=now) == {"bike": 0, "auto": 0, "cab": 0}
+
+
+async def test_rider_location_stored_when_online_even_without_ride(monkeypatch):
+    prof = P(is_available=True)
+    monkeypatch.setattr(rr, "_rider_ctx", AsyncMock(return_value=prof))
+    monkeypatch.setattr(service, "rider_has_active_ride", AsyncMock(return_value=False))
+    db = MagicMock(); db.commit = AsyncMock()
+    out = await rr.rider_location(rr.LocationRequest(lat=26.9, lng=75.8), User(id=uuid4(), role="delivery"), db)
+    assert out == {"ok": True} and prof.current_lat == 26.9 and prof.last_location_at is not None
+
+
+async def test_rider_location_ignored_when_offline_and_idle(monkeypatch):
+    prof = P(is_available=False)
+    monkeypatch.setattr(rr, "_rider_ctx", AsyncMock(return_value=prof))
+    monkeypatch.setattr(service, "rider_has_active_ride", AsyncMock(return_value=False))
+    out = await rr.rider_location(rr.LocationRequest(lat=26.9, lng=75.8), User(id=uuid4(), role="delivery"), MagicMock())
+    assert out == {"ok": False} and prof.current_lat is None

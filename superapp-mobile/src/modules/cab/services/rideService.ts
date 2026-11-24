@@ -1,5 +1,5 @@
 import { api } from '@services/api';
-import { PayMethod, Quote, Ride, RideConfig, RidePoint, VehicleClass } from '../types';
+import { Availability, PayMethod, Quote, Ride, RideConfig, RidePoint, VehicleClass } from '../types';
 
 type Pt = Pick<RidePoint, 'text' | 'lat' | 'lng'>;
 
@@ -19,6 +19,7 @@ export const rideService = {
     api.post<Quote>('/rides/estimate', { pickup, drop, vehicle_class }),
   book: (p: { pickup: Pt; drop: Pt; vehicle_class: VehicleClass; payment_method: PayMethod; expected_fare: number; note?: string }) =>
     api.post<Ride>('/rides', p),
+  availability: (lat: number, lng: number) => api.get<Availability>('/rides/availability', { params: { lat, lng } }),
   boost: (id: string, amount: number) => api.post<Ride>(`/rides/${id}/boost`, { amount }),
   rate: (id: string, rating: number, comment?: string) => api.post<Ride>(`/rides/${id}/rate`, { rating, comment }),
   sos: (id: string, body: { lat?: number; lng?: number; note?: string }) =>
@@ -32,7 +33,7 @@ export const rideService = {
   cancel: (id: string, reason_code?: string, reason?: string) => api.post<Ride>(`/rides/${id}/cancel`, { reason_code, reason }),
 
   // rider (existing delivery partner)
-  riderAvailable: () => api.get<{ rides: Ride[]; busy: boolean; blocked_reason?: string | null }>('/rides/rider/available'),
+  riderAvailable: () => api.get<{ rides: Ride[]; busy: boolean; blocked_reason?: string | null; online?: boolean }>('/rides/rider/available'),
   riderActive: () => api.get<{ ride: Ride | null }>('/rides/rider/active'),
   riderHistory: (page = 1) =>
     api.get<{ rides: Ride[]; page_totals: { completed: number; fare: number; cash: number; upi: number; unpaid: number } }>(

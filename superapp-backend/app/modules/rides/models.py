@@ -71,6 +71,11 @@ class RideSettings(Base):
     service_lng = Column(Float, nullable=True)
     service_radius_km = Column(Numeric(6, 2), nullable=True)
     sos_helpline = Column(String(20), nullable=False, default="112")
+    # A vehicle type is bookable only if an eligible, idle rider of that type has recently shared a location
+    # within `nearby_radius_km` of the pickup. Turn the requirement off to allow booking with nobody around
+    # (admin then assigns manually).
+    nearby_radius_km = Column(Numeric(5, 1), nullable=False, default=Decimal("6.0"))
+    require_nearby_rider = Column(Boolean, nullable=False, default=True)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
 
