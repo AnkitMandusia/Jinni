@@ -29,6 +29,8 @@ PIN, CITY, STATE = "302001", "Jaipur", "Rajasthan"
 ACCOUNTS = [
     dict(role="customer", email="customer@test.com", phone="+919876543215", name="Test Customer"),
     dict(role="delivery", email="delivery@test.com", phone="+919876543211", name="Amit Singh (Delivery)"),
+    dict(role="delivery", email="delivery2@test.com", phone="+919876543221", name="Rohit Meena (Delivery)"),
+    dict(role="delivery", email="delivery3@test.com", phone="+919876543222", name="Imran Khan (Delivery)"),
     dict(role="store", email="store@test.com", phone="+919876543214", name="Suresh Gupta (Store)"),
     dict(role="cab_driver", email="cab@test.com", phone="+919876543213", name="Vikram Patel (Cab)"),
     dict(role="salon", email="salon@test.com", phone="+919876543212", name="Priya Sharma (Salon)"),
@@ -69,11 +71,42 @@ async def seed_accounts(db, pw_hash: str) -> list[tuple[str, str]]:
                                     latitude=26.9157, longitude=75.8040, delivery_radius_km=8.0, is_open=True))
         elif a["role"] == "delivery":
             has = (await db.execute(select(DeliveryAgentProfile).where(DeliveryAgentProfile.user_id == u.id))).scalar_one_or_none()
+            if has:  # profiles created by older seeds lack pincode/UPI
+                has.pincode = has.pincode or PIN
+                has.upi_id = has.upi_id or f"{a['email'].split('@')[0]}@okaxis"
+                has.is_available = True
             if not has:
-                db.add(DeliveryAgentProfile(user_id=u.id, name="Amit Singh", vehicle_type="Bike",
-                                            license_no="RJ1420240001", aadhaar="123456789012", is_available=True))
+                first = (a["name"] or "Rider").split(" (")[0]
+                db.add(DeliveryAgentProfile(user_id=u.id, name=first, vehicle_type="Bike", pincode=PIN,
+                                            license_no="RJ14" + a["phone"][-8:], aadhaar="123456789012",
+                                            upi_id=f"{a['email'].split('@')[0]}@okaxis", is_available=True))
         out.append((a["role"], a["email"]))
     return out
+
+
+# Well-known Jaipur spots (demo coordinates) so riding works out of the box. In production the
+# admin curates these in Rides -> Jinni Spots.
+PLACES = [
+    ("Jaipur Junction (Railway Station)", "Station Road", "🚉", 26.9196, 75.7878),
+    ("Sindhi Camp Bus Stand", "Station Road", "🚌", 26.9226, 75.7990),
+    ("Hawa Mahal", "Old City", "🏯", 26.9239, 75.8267),
+    ("SMS Hospital", "Tonk Road", "🏥", 26.9055, 75.8160),
+    ("Raja Park Market", "Raja Park", "🛍️", 26.8985, 75.8350),
+    ("C-Scheme", "Ashok Nagar", "🏙️", 26.9082, 75.8007),
+    ("Malviya Nagar", "Malviya Nagar", "🏘️", 26.8553, 75.8157),
+    ("Vaishali Nagar", "Vaishali Nagar", "🌳", 26.9124, 75.7406),
+    ("Jaipur Airport", "Sanganer", "✈️", 26.8242, 75.8122),
+]
+
+
+async def seed_rides(db) -> None:
+    from app.modules.rides.models import RidePlace, RideSettings
+    if not await db.get(RideSettings, 1):
+        db.add(RideSettings(id=1, platform_upi_id="jinni@okaxis"))
+    have = {p for (p,) in (await db.execute(select(RidePlace.name))).all()}
+    for i, (name, area, icon, lat, lng) in enumerate(PLACES):
+        if name not in have:
+            db.add(RidePlace(name=name, area=area, icon=icon, lat=lat, lng=lng, display_order=i))
 
 
 async def main() -> None:
@@ -93,6 +126,9 @@ async def main() -> None:
         print("Food restaurants + menus…")
         for r in RESTAURANTS:
             print("  ", await seed_one(db, r))
+
+        print("Ride settings + Jinni Spots…")
+        await seed_rides(db)
 
         print("Accounts…")
         creds = await seed_accounts(db, pw_hash)
