@@ -20,7 +20,7 @@ export const FareReveal: React.FC<{ fare: number; km: number }> = ({ fare, km })
     <LinearGradient colors={[jinniColors.gold[100], jinniColors.gold[50]]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.card}>
       <Text style={styles.label}>✨ WISH PRICE</Text>
       <Text style={styles.fare}>₹{shown}</Text>
-      <Text style={styles.sub}>{km.toFixed(1)} km · fixed fare, no surprises</Text>
+      <Text style={styles.sub}>{km.toFixed(1)} km · price locked once you book</Text>
     </LinearGradient>
   );
 };

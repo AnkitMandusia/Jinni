@@ -231,7 +231,7 @@ async def ride_config(lat: Optional[float] = Query(None, ge=-90, le=90), lng: Op
         "payment_methods": ["cash", "upi"],
         "max_distance_km": float(s.max_distance_km),
         "boost_options": s.boost_options or [],
-        "cancel_reasons": [{"code": r["code"], "label": r["label"]} for r in dues_svc.CANCEL_REASONS],
+        "cancel_reasons": [{"code": r["code"], "label": r["label"], "rider_fault": r["rider_fault"]} for r in dues_svc.CANCEL_REASONS],
         "sos_helpline": s.sos_helpline,
         "dues_total": float(dues),
         "service_area": ({"lat": s.service_lat, "lng": s.service_lng, "radius_km": float(s.service_radius_km),
