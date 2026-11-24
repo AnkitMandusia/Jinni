@@ -33,7 +33,7 @@ export const JinniLogo: React.FC<JinniLogoProps> = ({
   void useImageLamp; // kept for API compatibility with existing callers
 
   return (
-    <View style={[styles.row, isHero && styles.heroCol]}>
+    <View style={[styles.row, isHero && styles.heroCol, !isHero && showTagline && styles.stackLeft]}>
       <JinniWordmark width={logoWidth} />
       {showTagline && (
         <Text style={[styles.tagline, isHero && styles.taglineHero]}>{tagline}</Text>
@@ -47,6 +47,11 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
+  },
+  stackLeft: {
+    flexDirection: 'column',
+    alignItems: 'flex-start',
+    gap: 6,
   },
   heroCol: {
     flexDirection: 'column',
