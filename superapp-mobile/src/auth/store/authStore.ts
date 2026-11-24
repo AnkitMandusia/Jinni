@@ -1,5 +1,5 @@
 import { createPersistedStore } from '@store/useStore';
-import { api, setApiToken, onAuthFailure } from '@services/api';
+import { api, API_BASE_URL, setApiToken, onAuthFailure } from '@services/api';
 import { storage } from '@services/storage';
 
 export type UserRole =
@@ -198,11 +198,16 @@ export const useAuthStore = createPersistedStore<AuthState & AuthActions>(
         });
         return true;
       } catch (error: any) {
+        // No `response` means the request never got an HTTP answer (server unreachable, wrong
+        // API URL, cleartext blocked, timeout) — do not report that as a wrong password.
+        const detail = error.response?.data?.detail;
         set({
           isLoading: false,
-          error:
-            error.response?.data?.detail ||
-            'Invalid phone/email or password.',
+          error: error.response
+            ? typeof detail === 'string' && detail
+              ? detail
+              : 'Invalid phone/email or password.'
+            : `Cannot reach the server (${API_BASE_URL}). Check your network / API URL.`,
         });
         return false;
       }
