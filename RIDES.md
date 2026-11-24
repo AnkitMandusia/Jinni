@@ -58,10 +58,15 @@ between estimate and booking the app re-confirms). **Live price preview** in the
   cancelled, and admin can **Waive fee**. Each fee is settled exactly once.
 - *Boost options / max total boost*, *request timeout*, *SOS helpline* (default 112).
 
-**4 · Nearby availability.** *Nearby rider radius* and *Hide vehicle types with no rider nearby* (turn off to always allow booking and assign manually). Riders report their location every 60 s while Online (15 s on a ride); the partners table shows "seen …".
+**4 · Nearby availability.** *Nearby rider radius* and *Hide vehicle types with no rider nearby* (turn off to always allow booking and assign manually). Riders' phones check their position every 2 min while Online but tell the server only if they moved 300 m+ or every 8 min (≈7 tiny requests/hour; 15 s only during a ride); the partners table shows "seen …".
 
 **5 · Service area & basics.** Centre + radius (pickups outside are refused), max trip, average speed for ETA,
 fallback UPI id, master on/off.
+
+## Who does what
+- **Bike partners**: food, grocery *and* bike rides (switches in the dashboard).
+- **Auto / Cab partners**: rides only — no Orders tab, no delivery alerts, the server refuses delivery accept/broadcast for them.
+- A customer's cancellation dues are added to whichever comes first: the next ride, a food order or a grocery order.
 
 ## Safety
 - **Start code**: customer-only 4-digit code; rider needs it to start; 5 wrong tries lock the ride (admin reassigns).

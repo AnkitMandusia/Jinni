@@ -166,7 +166,9 @@ export const DeliveryDashboardScreen: React.FC = () => {
             <View>
               <Text style={styles.toggleTitle}>{isOnline ? 'You are Online' : 'You are Offline'}</Text>
               <Text style={styles.toggleSub}>
-                {isOnline ? 'Ready for deliveries and rides' : 'Go online to get deliveries and rides'}
+                {data?.preferences?.deliveries_allowed === false
+                  ? (isOnline ? 'Ready for rides' : 'Go online to get rides')
+                  : (isOnline ? 'Ready for deliveries and rides' : 'Go online to get deliveries and rides')}
               </Text>
             </View>
           </View>
@@ -309,10 +311,12 @@ export const DeliveryDashboardScreen: React.FC = () => {
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Quick Actions</Text>
           <View style={styles.actionsGrid}>
-            <TouchableOpacity style={styles.actionCard} onPress={() => navigation.navigate('Orders')}>
-              <Ionicons name="list-outline" size={28} color={colors.primary[500]} />
-              <Text style={styles.actionLabel}>Available Orders</Text>
-            </TouchableOpacity>
+            {data?.preferences?.deliveries_allowed !== false && (
+              <TouchableOpacity style={styles.actionCard} onPress={() => navigation.navigate('Orders')}>
+                <Ionicons name="list-outline" size={28} color={colors.primary[500]} />
+                <Text style={styles.actionLabel}>Available Orders</Text>
+              </TouchableOpacity>
+            )}
             <TouchableOpacity style={styles.actionCard} onPress={() => navigation.navigate('Rides')}>
               <Ionicons name="sparkles-outline" size={28} color="#5E2FB8" />
               <Text style={styles.actionLabel}>Ride Requests</Text>
