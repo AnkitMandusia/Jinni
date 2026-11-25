@@ -266,6 +266,21 @@ def _quote_json(q: dict) -> dict:
             "total_payable": float(q["total_payable"]), "currency": "INR"}
 
 
+@router.get("/availability")
+async def availability(lat: float = Query(..., ge=-90, le=90), lng: float = Query(..., ge=-180, le=180),
+                       user: User = Depends(get_current_active_user), db: AsyncSession = Depends(get_db)):
+    """Which vehicle types have a rider *near this pickup* right now. The app fades out the ones that don't.
+    Riders' positions are never returned — only whether someone is close enough."""
+    s = await service.get_settings(db)
+    fares = await service.get_fares(db)
+    counts = await service.nearby_counts(db, s, lat, lng)
+    await db.commit()
+    return {"radius_km": float(s.nearby_radius_km), "required": bool(s.require_nearby_rider),
+            "vehicles": [{"vehicle_class": vc, "available": counts.get(vc, 0) > 0 or not s.require_nearby_rider,
+                          "nearby": counts.get(vc, 0), "enabled": bool(fares[vc].is_enabled)}
+                         for vc in fares]}
+
+
 @router.post("/estimate")
 async def estimate(body: EstimateRequest, user: User = Depends(get_current_active_user),
                    db: AsyncSession = Depends(get_db)):
@@ -293,6 +308,13 @@ async def book_ride(body: BookRequest, user: User = Depends(get_current_active_u
         raise HTTPException(status.HTTP_409_CONFLICT, "You already have a ride in progress.")
 
     q = await _price(db, s, body, user.id)
+    if s.require_nearby_rider:
+        near = (await service.nearby_counts(db, s, body.pickup.lat, body.pickup.lng)).get(body.vehicle_class, 0)
+        if near == 0:
+            await db.commit()
+            raise HTTPException(status.HTTP_409_CONFLICT, detail={
+                "code": "no_rider_nearby",
+                "message": f"No {body.vehicle_class} rider is available near your pickup right now. Try another vehicle or check again in a minute."})
     if abs(q["fare"] - body.expected_fare) > Decimal("0.5"):
         raise HTTPException(status.HTTP_409_CONFLICT,
                             detail={"code": "fare_changed", "fare": float(q["fare"]),
@@ -391,7 +413,7 @@ async def rider_available(user: User = Depends(get_current_active_user), db: Asy
     busy = await service.rider_is_busy(db, user.id)
     if block or not profile.is_available or not s.is_enabled or busy:
         await db.commit()
-        return {"rides": [], "busy": busy, "blocked_reason": block}
+        return {"rides": [], "busy": busy, "blocked_reason": block, "online": bool(profile.is_available)}
     rejected = select(RideRejection.ride_id).where(RideRejection.rider_id == user.id)
     rows = (await db.execute(select(Ride).where(
         Ride.status == RideStatus.REQUESTED, Ride.vehicle_class == profile.vehicle_class, Ride.id.notin_(rejected))
@@ -401,7 +423,7 @@ async def rider_available(user: User = Depends(get_current_active_user), db: Asy
         if not await service.expire_if_stale(db, r, s):
             fresh.append(r)
     await db.commit()
-    return {"rides": [await _load(db, r, s, "rider") for r in fresh], "busy": False, "blocked_reason": None}
+    return {"rides": [await _load(db, r, s, "rider") for r in fresh], "busy": False, "blocked_reason": None, "online": True}
 
 
 @router.get("/rider/active")
@@ -438,7 +460,9 @@ async def rider_location(body: LocationRequest, user: User = Depends(get_current
                          db: AsyncSession = Depends(get_db)):
     """Rider phone GPS -> customer's distance/ETA. Stored ONLY while the rider is on a ride (privacy + cost)."""
     profile = await _rider_ctx(db, user)
-    if not await service.rider_has_active_ride(db, user.id):
+    # Stored while on a ride (customer ETA) or while online (so nearby customers can see this vehicle type is
+    # available). Never shared with customers as coordinates.
+    if not (profile.is_available or await service.rider_has_active_ride(db, user.id)):
         return {"ok": False}
     profile.current_lat, profile.current_lng, profile.last_location_at = body.lat, body.lng, datetime.utcnow()
     await db.commit()
@@ -582,6 +606,8 @@ async def rider_complete(ride_id: UUID, body: CompleteRequest, user: User = Depe
     ride, s = await _rider_step(db, user, ride_id, RideStatus.COMPLETED, "completed_at")
     if body.payment_received:
         _mark_paid(ride, user.id, body.payment_ref)
+    from app.modules.finance.service import snapshot_ride
+    await snapshot_ride(db, ride)  # freeze commission / rider amount
     await db.commit()
     await notify(db, ride.customer_id, "Ride completed ✨",
                  f"Total ₹{service.total_payable(ride):.0f}" + (" — please pay by UPI." if ride.payment_method == "upi"

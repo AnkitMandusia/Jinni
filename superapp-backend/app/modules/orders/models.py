@@ -103,6 +103,10 @@ class Order(Base):
     coupon_code = Column(String(40), nullable=True)
     # Earlier ride-cancellation fees folded into this order's total (see rides/dues.py).
     platform_dues = Column(Numeric(10, 2), nullable=False, default=Decimal("0.00"))
+    # Settlement split, frozen when the order is delivered (see modules/finance).
+    commission_amount = Column(Numeric(10, 2), nullable=True)   # platform commission on the item subtotal
+    seller_amount = Column(Numeric(10, 2), nullable=True)       # owed to the restaurant / store
+    rider_amount = Column(Numeric(10, 2), nullable=True)        # owed to the rider (share of delivery fee)
     
     # Addresses
     delivery_address = Column(JSON, nullable=False)  # {line1, line2, city, state, pincode, lat, lng}

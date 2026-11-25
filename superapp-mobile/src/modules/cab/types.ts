@@ -96,6 +96,12 @@ export interface RideConfig {
   places: (RidePlace & { distance_km?: number | null; category?: string | null })[];
 }
 
+export interface Availability {
+  radius_km: number;
+  required: boolean;
+  vehicles: { vehicle_class: VehicleClass; available: boolean; nearby: number; enabled: boolean }[];
+}
+
 export interface Quote {
   vehicle_class: VehicleClass;
   distance_km: number;

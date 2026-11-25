@@ -352,6 +352,9 @@ class OrderService:
                     detail="Order not found"
                 )
             
+            if str(order.order_type) != OrderType.GROCERY.value:
+                raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Order not found")
+
             if order.status != OrderStatus.PENDING_DISPATCH.value:
                 raise HTTPException(
                     status_code=status.HTTP_409_CONFLICT,
@@ -498,8 +501,15 @@ class OrderService:
             order.picked_up_at = datetime.utcnow()
         elif new_status_val == "delivered":
             order.delivered_at = datetime.utcnow()
+            if str(order.payment_method) == "cod" and str(order.payment_status) == "pending":
+                order.payment_status = "paid"  # the rider collected the cash at the door
             await engagement.on_order_delivered(db, order)
-            for item in order.items:
+            from app.modules.finance.service import snapshot_order
+            await snapshot_order(db, order)  # freeze commission / seller / rider amounts
+            # Explicit query: `order.items` would lazy-load inside async code (MissingGreenlet -> HTTP 500,
+            # which made every OTP delivery fail).
+            items = (await db.execute(select(OrderItem).where(OrderItem.order_id == order.id))).scalars().all()
+            for item in items:
                 if item.product_id:
                     product = await db.get(Product, item.product_id)
                     if product:
@@ -547,6 +557,8 @@ class OrderService:
                     User.status == "active",
                     DeliveryAgentProfile.is_available == True,
                     DeliveryAgentProfile.take_deliveries == True,
+                    # food/grocery run on two-wheelers only; auto and cab partners are ride-only
+                    or_(DeliveryAgentProfile.vehicle_class.is_(None), DeliveryAgentProfile.vehicle_class == "bike"),
                 )
             )
         )
@@ -618,7 +630,11 @@ class OrderService:
             .where(
                 and_(
                     Order.status == OrderStatus.PENDING_DISPATCH.value,
-                    Order.delivery_pincode == store_pincode
+                    Order.delivery_pincode == store_pincode,
+                    # scheduled orders appear 45 min before the slot (see app/tasks.py), not days ahead
+                    or_(Order.scheduled_for.is_(None), Order.scheduled_for <= datetime.utcnow() + timedelta(minutes=45)),
+                    # food orders belong to their restaurant, never to a grocery store's queue
+                    Order.order_type == OrderType.GROCERY.value,
                 )
             )
             .order_by(Order.created_at.desc())

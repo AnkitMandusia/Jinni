@@ -6,8 +6,10 @@ time** — a ride *or* a food/grocery delivery. No paid maps API anywhere.
 ## Customer flow
 1. Home → **Rides**. Pickup defaults to current location (if permission already granted); pick pickup/drop from
    **Jinni Spots (nearest first)**, saved addresses, free address search, or GPS.
-2. Choose **Bike / Auto / Cab** — each card shows the exact fare and how many carpets are free.
-   The line under the headline adapts to any rider count (0 → "all busy, make your wish", 1, 2…9, "10+ awake").
+2. Choose **Bike / Auto / Cab** — each card shows the exact fare. A vehicle type is **faded out ("None nearby")** unless an
+   idle, verified, online rider of that type has reported a location within the admin's *nearby radius* (default 6 km,
+   last 5 min) of the **pickup**. Change the pickup and the cards update; the app also picks an available type for you.
+   Booking is enforced server-side (409 `no_rider_nearby`). No rider counts are shown to customers.
 3. **ⓘ** icons explain every extra amount (busy-time ×, earlier cancellation charge). Pay **Cash** or **UPI** after the ride.
 4. After booking: live status, rider card (name, **vehicle number plate**, make/colour, rating, call button), a
    **4-digit ride code** (the rider must type it to start), live **distance & ETA**, **SOS**, **cancel with reason**.
@@ -56,8 +58,15 @@ between estimate and booking the app re-confirms). **Live price preview** in the
   cancelled, and admin can **Waive fee**. Each fee is settled exactly once.
 - *Boost options / max total boost*, *request timeout*, *SOS helpline* (default 112).
 
-**4 · Service area & basics.** Centre + radius (pickups outside are refused), max trip, average speed for ETA,
+**4 · Nearby availability.** *Nearby rider radius* and *Hide vehicle types with no rider nearby* (turn off to always allow booking and assign manually). Riders' phones check their position every 2 min while Online but tell the server only if they moved 300 m+ or every 8 min (≈7 tiny requests/hour; 15 s only during a ride); the partners table shows "seen …".
+
+**5 · Service area & basics.** Centre + radius (pickups outside are refused), max trip, average speed for ETA,
 fallback UPI id, master on/off.
+
+## Who does what
+- **Bike partners**: food, grocery *and* bike rides (switches in the dashboard).
+- **Auto / Cab partners**: rides only — no Orders tab, no delivery alerts, the server refuses delivery accept/broadcast for them.
+- A customer's cancellation dues are added to whichever comes first: the next ride, a food order or a grocery order.
 
 ## Safety
 - **Start code**: customer-only 4-digit code; rider needs it to start; 5 wrong tries lock the ride (admin reassigns).

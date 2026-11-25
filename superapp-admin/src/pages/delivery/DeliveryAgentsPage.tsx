@@ -6,7 +6,7 @@ import { ReloadOutlined, CheckOutlined, StopOutlined } from '@ant-design/icons';
 import { getUsers, approveUser, suspendUser, reactivateUser } from '../../api/admin';
 import { message } from 'antd';
 
-const { Title, Text } = Typography;
+const { Text } = Typography;
 
 interface DeliveryAgent {
   id: string;
@@ -19,7 +19,7 @@ interface DeliveryAgent {
 
 const STATUS_OPTIONS = [
   { label: 'All Status', value: '' },
-  { label: 'Pending', value: 'pending' },
+  { label: 'Pending', value: 'pending_approval' },
   { label: 'Active', value: 'active' },
   { label: 'Suspended', value: 'suspended' },
 ];
@@ -82,10 +82,10 @@ export const DeliveryAgentsPage: React.FC = () => {
       key: 'status',
       render: (s: string) => (
         <Badge
-          status={s === 'active' ? 'success' : s === 'pending' ? 'warning' : 'error'}
+          status={s === 'active' ? 'success' : s === 'pending_approval' ? 'warning' : 'error'}
           text={
             <Tag
-              color={s === 'active' ? 'green' : s === 'pending' ? 'orange' : 'red'}
+              color={s === 'active' ? 'green' : s === 'pending_approval' ? 'orange' : 'red'}
               style={{ fontWeight: 600 }}
             >
               {s?.toUpperCase()}
@@ -114,7 +114,7 @@ export const DeliveryAgentsPage: React.FC = () => {
       key: 'actions',
       render: (a: DeliveryAgent) => (
         <Space>
-          {a.status === 'pending' && (
+          {a.status === 'pending_approval' && (
             <Tooltip title="Approve">
               <Button
                 type="primary"
@@ -160,8 +160,7 @@ export const DeliveryAgentsPage: React.FC = () => {
   return (
     <div>
       <div style={{ marginBottom: 24 }}>
-        <Title level={3} style={{ margin: 0 }}>Delivery Agents</Title>
-        <Text type="secondary">Manage delivery agent accounts</Text>
+        <div className="j-hero"><div style={{ position: 'relative', zIndex: 1 }}><div className="j-kicker">✦ RIDERS</div><h1>Delivery agents</h1><p>Riders who carry food and grocery (bike) or take Jinni Carpet rides (bike, auto, cab).</p></div></div>
       </div>
 
       <Card

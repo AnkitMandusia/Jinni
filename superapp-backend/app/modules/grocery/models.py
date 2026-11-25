@@ -178,3 +178,17 @@ class ProductInventoryLog(Base):
     
     def __repr__(self):
         return f"<InventoryLog(product={self.product_id}, change={self.change_amount})>"
+
+
+class StockAdjustment(Base):
+    """Audit trail for every manual stock change made from the admin console (who, how much, why)."""
+    __tablename__ = "stock_adjustments"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid4)
+    product_id = Column(UUID(as_uuid=True), ForeignKey("products.id", ondelete="CASCADE"), nullable=False, index=True)
+    delta = Column(Integer, nullable=False)
+    before_qty = Column(Integer, nullable=False)
+    after_qty = Column(Integer, nullable=False)
+    reason = Column(String(300), nullable=False)
+    admin_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow, index=True)

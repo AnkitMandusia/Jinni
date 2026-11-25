@@ -12,7 +12,7 @@ import {
 import type { UploadProps } from 'antd';
 import {
   getProducts, getCategories, createProduct, updateProduct,
-  deleteProduct, lookupBarcode, uploadProductImage,
+  deleteProduct, lookupBarcode, uploadProductImage, adjustStock, getStockLog,
 } from '../../api/admin';
 
 const { Title, Text } = Typography;
@@ -49,6 +49,7 @@ export const ProductListPage: React.FC = () => {
   const [loading, setLoading]               = useState(false);
   const [search, setSearch]                 = useState('');
   const [categoryFilter, setCat]            = useState<string | undefined>();
+  const [lowOnly, setLowOnly]               = useState(false);
   const [page, setPage]                     = useState(1);
   const [total, setTotal]                   = useState(0);
   const [modalOpen, setModalOpen]           = useState(false);
@@ -75,16 +76,39 @@ export const ProductListPage: React.FC = () => {
       const params: Record<string, any> = { page: p, page_size: PAGE_SIZE };
       if (search) params.search = search;
       if (categoryFilter) params.category_id = categoryFilter;
+      if (lowOnly) params.low_stock = true;
       const res = await getProducts(params);
       setProducts(res.data?.items ?? []);
       setTotal(res.data?.total ?? 0);
       setPage(p);
     } catch { /* ignore */ }
     finally { setLoading(false); }
-  }, [search, categoryFilter]);
+  }, [search, categoryFilter, lowOnly]);
 
   useEffect(() => { fetchCategories(); }, [fetchCategories]);
-  useEffect(() => { fetchProducts(1); }, [search, categoryFilter]); // eslint-disable-line
+  useEffect(() => { fetchProducts(1); }, [search, categoryFilter, lowOnly]); // eslint-disable-line
+
+  // ── Stock adjustment (audited) ────────────────────────────────────────────────
+  const openStock = async (p: any) => {
+    let delta = 0; let reason = '';
+    let log: any[] = [];
+    try { log = ((await getStockLog(p.id)) as any).log; } catch { /* optional */ }
+    Modal.confirm({
+      title: `Adjust stock — ${p.name}`, icon: null, okText: 'Save', width: 460,
+      content: (
+        <div>
+          <p style={{ color: '#6B6482' }}>On hand {p.stock_quantity} · reserved {p.reserved_quantity || 0}. Use + to add, − to remove (damage, expiry, recount).</p>
+          <InputNumber style={{ width: '100%', marginBottom: 8 }} placeholder="Change (e.g. 20 or -3)" onChange={(v) => { delta = Number(v || 0); }} />
+          <Input placeholder="Reason (required)" onChange={(e) => { reason = e.target.value; }} />
+          {log.length > 0 && <div style={{ marginTop: 12, fontSize: 12, color: '#6B6482' }}><b>Recent changes</b>{log.slice(0, 4).map((l, i) => <div key={i}>{l.delta > 0 ? '+' : ''}{l.delta} → {l.after} · {l.reason} · {l.by}</div>)}</div>}
+        </div>
+      ),
+      onOk: async () => {
+        try { await adjustStock(p.id, delta, reason); message.success('Stock updated'); fetchProducts(page); }
+        catch (e: any) { message.error(typeof e?.response?.data?.detail === 'string' ? e.response.data.detail : 'Could not adjust stock'); throw e; }
+      },
+    });
+  };
 
   // ── Barcode lookup ───────────────────────────────────────────────────────────
   const handleBarcodeSearch = async () => {
@@ -231,12 +255,12 @@ export const ProductListPage: React.FC = () => {
     {
       title: 'Stock',
       dataIndex: 'stock_quantity',
-      render: (v: number) => <Text>{v}</Text>,
+      render: (v: number, r: any) => { const avail = v - (r.reserved_quantity || 0); const low = avail <= (r.low_stock_threshold ?? 5); return <Space direction="vertical" size={0}><Text strong style={{ color: avail <= 0 ? '#B42318' : low ? '#B54708' : undefined }}>{avail} free</Text><Text type="secondary" style={{ fontSize: 11 }}>{v} on hand{r.reserved_quantity ? ` · ${r.reserved_quantity} reserved` : ''}</Text></Space>; },
     },
     {
       title: 'Owner',
       dataIndex: 'owner_type',
-      render: (v: string) => <Tag color={OWNER_COLOR[v] ?? 'default'}>{v.toUpperCase()}</Tag>,
+      render: (v: string, r: any) => <Space direction="vertical" size={0}><Tag color={OWNER_COLOR[v] ?? 'default'} style={{ marginInlineEnd: 0 }}>{(v || 'platform').toUpperCase()}</Tag>{v === 'store' && r.owner && <Text type="secondary" style={{ fontSize: 11 }}>{r.owner}</Text>}</Space>,
     },
     {
       title: 'Active',
@@ -249,6 +273,9 @@ export const ProductListPage: React.FC = () => {
       title: 'Actions',
       render: (_: any, r: Product) => (
         <Space>
+          <Tooltip title="Add or remove stock (audited)">
+            <Button size="small" onClick={() => openStock(r)}>Stock</Button>
+          </Tooltip>
           <Tooltip title="Edit">
             <Button icon={<EditOutlined />} size="small" onClick={() => openEdit(r)} />
           </Tooltip>
@@ -268,9 +295,11 @@ export const ProductListPage: React.FC = () => {
   ];
 
   return (
-    <>
+    <div style={{ display: 'grid', gap: 16 }}>
+      <div className="j-hero"><div style={{ position: 'relative', zIndex: 1 }}><div className="j-kicker">✦ GROCERY CATALOGUE</div><h1>Products & prices</h1><p>Prices, MRP and stock for the whole platform. Store-owned products show their store. Customers see changes instantly.</p></div>
+        <div style={{ position: 'relative', zIndex: 1, textAlign: 'right' }}><div className="j-kicker">PRODUCTS</div><div style={{ fontSize: 30, fontWeight: 800 }}>{total}</div></div></div>
       <Card
-        title={<Title level={4} style={{ margin: 0 }}>📦 Products</Title>}
+        title={<Title level={4} style={{ margin: 0 }}>Catalogue</Title>}
         extra={
           <Button type="primary" icon={<PlusOutlined />} onClick={openAdd}>
             Add Product
@@ -302,6 +331,9 @@ export const ProductListPage: React.FC = () => {
               </Select>
             </Col>
             <Col>
+              <span style={{ marginRight: 8, color: '#6B6482' }}>Low stock only</span><Switch checked={lowOnly} onChange={setLowOnly} />
+            </Col>
+            <Col>
               <Button icon={<ReloadOutlined />} onClick={() => fetchProducts(page)} />
             </Col>
           </Row>
@@ -323,7 +355,6 @@ export const ProductListPage: React.FC = () => {
           size="middle"
         />
       </Card>
-
       {/* Add / Edit Modal */}
       <Modal
         title={editing ? `Edit: ${editing.name}` : 'Add Product'}
@@ -451,7 +482,7 @@ export const ProductListPage: React.FC = () => {
           )}
         </Form>
       </Modal>
-    </>
+    </div>
   );
 };
 

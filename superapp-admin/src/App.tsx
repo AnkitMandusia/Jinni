@@ -10,6 +10,11 @@ import { OrdersPage } from './pages/orders/OrdersPage';
 import { DeliveryAgentsPage } from './pages/delivery/DeliveryAgentsPage';
 import { RidesPage } from './pages/rides/RidesPage';
 import { PartnerDashboardPage } from './pages/partners/PartnerDashboardPage';
+import { PaymentsPage } from './pages/payments/PaymentsPage';
+import { RestaurantsPage } from './pages/restaurants/RestaurantsPage';
+import { ProductListPage as ProductList } from './pages/grocery/ProductList';
+import { StoresPage } from './pages/stores/StoresPage';
+import { FinancePage } from './pages/finance/FinancePage';
 
 const roleHome = (role?: string) => {
   const value = (role || '').toLowerCase();
@@ -48,6 +53,11 @@ const AppRoutes: React.FC = () => {
     <Route path="/admin" element={<ProtectedRoute roles={['admin','super_admin']}><DashboardPage /></ProtectedRoute>} />
     <Route path="/users" element={<ProtectedRoute roles={['admin','super_admin']}><UsersPage /></ProtectedRoute>} />
     <Route path="/orders" element={<ProtectedRoute roles={['admin','super_admin']}><OrdersPage /></ProtectedRoute>} />
+    <Route path="/stores" element={<ProtectedRoute roles={['admin','super_admin']}><StoresPage /></ProtectedRoute>} />
+    <Route path="/finance" element={<ProtectedRoute roles={['admin','super_admin']}><FinancePage /></ProtectedRoute>} />
+    <Route path="/payments" element={<ProtectedRoute roles={['admin','super_admin']}><PaymentsPage /></ProtectedRoute>} />
+    <Route path="/restaurants" element={<ProtectedRoute roles={['admin','super_admin']}><RestaurantsPage /></ProtectedRoute>} />
+    <Route path="/products" element={<ProtectedRoute roles={['admin','super_admin']}><ProductList /></ProtectedRoute>} />
     <Route path="/rides" element={<ProtectedRoute roles={['admin','super_admin']}><RidesPage /></ProtectedRoute>} />
     <Route path="/delivery" element={<ProtectedRoute roles={['admin','super_admin']}><DeliveryAgentsPage /></ProtectedRoute>} />
     <Route path="/restaurant/*" element={<ProtectedRoute roles={['restaurant']}><PartnerDashboardPage /></ProtectedRoute>} />
@@ -57,7 +67,7 @@ const AppRoutes: React.FC = () => {
 };
 
 const App: React.FC = () => <ConfigProvider theme={{
-  token: { colorPrimary: '#4F46E5', borderRadius: 10, fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif' },
+  token: { colorPrimary: '#5E2FB8', colorInfo: '#5E2FB8', colorLink: '#5E2FB8', borderRadius: 10, fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif' },
   components: { Table: { borderRadius: 0 }, Card: { borderRadius: 16 }, Button: { borderRadius: 8 }, Input: { borderRadius: 8 }, Select: { borderRadius: 8 }, Tag: { borderRadius: 6 } },
 }}>
   <AntApp><BrowserRouter><AppRoutes /></BrowserRouter></AntApp>

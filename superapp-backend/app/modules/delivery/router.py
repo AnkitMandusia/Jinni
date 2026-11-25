@@ -59,6 +59,11 @@ class UpdateDeliveryProfileRequest(BaseModel):
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
+def deliveries_allowed(profile: DeliveryAgentProfile) -> bool:
+    """Food/grocery are carried on two-wheelers. Auto and cab partners are ride-only."""
+    return (profile.vehicle_class or "bike") == "bike"
+
+
 def _require_delivery(user: User) -> None:
     if user.role != "delivery":
         raise HTTPException(
@@ -169,7 +174,7 @@ async def get_dashboard(
     from app.modules.rides.router import ride_block_reason
     rides_today = (await db.execute(select(Ride).where(
         Ride.rider_id == user.id, Ride.status == RideStatus.COMPLETED, Ride.completed_at >= today_start))).scalars().all()
-    ride_earnings = float(sum(ride_service.total_payable(r) for r in rides_today))
+    ride_earnings = float(sum((r.rider_amount if r.rider_amount is not None else r.fare) for r in rides_today))  # net of platform commission
     ride_cash = float(sum(ride_service.total_payable(r) for r in rides_today
                           if r.payment_method == "cash" and r.payment_status == "paid"))
     active_ride = (await db.execute(select(Ride).where(
@@ -185,7 +190,7 @@ async def get_dashboard(
         "active_ride": ({"id": str(active_ride.id), "ride_number": active_ride.ride_number, "status": active_ride.status,
                          "pickup": active_ride.pickup_text, "drop": active_ride.drop_text,
                          "fare": float(ride_service.total_payable(active_ride))} if active_ride else None),
-        "preferences": {"take_deliveries": bool(profile.take_deliveries), "take_rides": bool(profile.take_rides),
+        "preferences": {"deliveries_allowed": deliveries_allowed(profile), "take_deliveries": bool(profile.take_deliveries) and deliveries_allowed(profile), "take_rides": bool(profile.take_rides),
                         "rides_allowed_by_admin": bool(profile.ride_enabled),
                         "ride_blocked_reason": ride_block_reason(profile) if profile.ride_enabled else
                         "Rides are not enabled for your account. Contact admin."},
@@ -215,7 +220,7 @@ async def get_available_orders(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Go online first to see available orders",
         )
-    if not profile.take_deliveries:  # partner chose to take only rides right now
+    if not profile.take_deliveries or not deliveries_allowed(profile):  # rides-only (by choice or vehicle)
         return []
 
     filters = [
@@ -270,6 +275,9 @@ async def accept_delivery(
             detail="You must be online to accept deliveries",
         )
 
+    if not deliveries_allowed(profile):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN,
+                            detail="Food and grocery deliveries are for bike partners. Your vehicle takes rides only.")
     # One job at a time: a partner on an active bike-taxi ride can't pick up a delivery.
     from app.modules.rides.service import rider_has_active_ride
     if await rider_has_active_ride(db, user.id):
@@ -480,7 +488,7 @@ async def get_earnings(
     )
     orders = result.scalars().all()
 
-    total_earnings = sum(float(o.delivery_fee or 0) for o in orders)
+    total_earnings = sum(float(o.rider_amount if o.rider_amount is not None else (o.delivery_fee or 0)) for o in orders)
     cod_collected = sum(float(o.total_amount or 0) for o in orders if str(o.payment_method) == "cod")
 
     return {
@@ -493,7 +501,7 @@ async def get_earnings(
                 "id": str(o.id),
                 "order_number": o.order_number,
                 "total_amount": float(o.total_amount),
-                "delivery_fee": float(o.delivery_fee or 0),
+                "delivery_fee": float(o.rider_amount if o.rider_amount is not None else (o.delivery_fee or 0)),
                 "payment_method": str(o.payment_method),
                 "delivered_at": o.delivered_at.isoformat() if o.delivered_at else None,
             }
@@ -569,7 +577,8 @@ async def get_delivery_profile(
         "emergency_phone": profile.emergency_phone,
         "documents_verified": bool(profile.documents_verified),
         "take_rides": bool(profile.take_rides),
-        "take_deliveries": bool(profile.take_deliveries),
+        "take_deliveries": bool(profile.take_deliveries) and deliveries_allowed(profile),
+        "deliveries_allowed": deliveries_allowed(profile),
         "rating": profile.rating,
         "rating_count": profile.rating_count,
         "kyc_issues": __import__("app.modules.delivery.kyc", fromlist=["expiry_issues"]).expiry_issues(profile),

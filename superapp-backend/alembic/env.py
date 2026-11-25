@@ -24,6 +24,8 @@ from app.modules.grocery.models import (        # noqa: F401
 )
 from app.modules.engagement import models as _engagement_models  # noqa: F401
 from app.modules.rides import models as _rides_models  # noqa: F401
+from app.modules.finance import models as _finance_models  # noqa: F401
+from app.modules.grocery import models as _grocery_models  # noqa: F401
 # from app.modules.food.models import ...       # uncomment when food models are added
 
 # ─────────────────────────────────────────────────────────────────────────────

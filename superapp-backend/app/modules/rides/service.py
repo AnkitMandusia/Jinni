@@ -146,6 +146,34 @@ async def online_rider_count(db: AsyncSession, vehicle_class: Optional[str] = No
     return int((await db.execute(q)).scalar() or 0)
 
 
+PRESENCE_FRESH_MINUTES = 10  # a rider counts as "around" only if their phone reported a location this recently
+
+
+def riders_nearby(profiles, lat: float, lng: float, radius_km: float, now: Optional[datetime] = None) -> dict[str, int]:
+    """Pure: {vehicle_class: how many of these riders are fresh AND within radius of (lat,lng)}."""
+    now = now or datetime.utcnow()
+    out: dict[str, int] = {vc: 0 for vc in VEHICLE_CLASSES}
+    for p in profiles:
+        if p.current_lat is None or p.current_lng is None or not p.last_location_at or not p.vehicle_class:
+            continue
+        if (now - p.last_location_at).total_seconds() > PRESENCE_FRESH_MINUTES * 60:
+            continue
+        if haversine_km(lat, lng, p.current_lat, p.current_lng) <= radius_km and p.vehicle_class in out:
+            out[p.vehicle_class] += 1
+    return out
+
+
+async def nearby_counts(db: AsyncSession, settings: RideSettings, lat: float, lng: float) -> dict[str, int]:
+    """Idle, eligible riders (online, verified, ride-enabled, not on another job) near a pickup point."""
+    a, d = _busy_clauses(User.id)
+    since = datetime.utcnow() - timedelta(minutes=PRESENCE_FRESH_MINUTES)
+    rows = (await db.execute(
+        select(DeliveryAgentProfile).join(User, User.id == DeliveryAgentProfile.user_id)
+        .where(*eligible_rider_filters(), ~a, ~d, DeliveryAgentProfile.last_location_at >= since)
+    )).scalars().all()
+    return riders_nearby(rows, lat, lng, float(settings.nearby_radius_km))
+
+
 async def open_request_count(db: AsyncSession, vehicle_class: str, minutes: int = 10) -> int:
     since = datetime.utcnow() - timedelta(minutes=minutes)
     return int((await db.execute(select(func.count()).select_from(Ride).where(
