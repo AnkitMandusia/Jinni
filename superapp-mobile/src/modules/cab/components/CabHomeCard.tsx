@@ -10,7 +10,7 @@ interface CabHomeCardProps {
 }
 
 const Card = styled(TouchableOpacity)`
-  background-color: ${colors.cab.primary}15;
+  background-color: #5E2FB815;
   border-radius: ${borderRadius.lg}px;
   padding: ${spacing.lg}px;
   margin-bottom: ${spacing.md}px;
@@ -21,7 +21,7 @@ const Card = styled(TouchableOpacity)`
 const IconContainer = styled.View`
   width: 56px;
   height: 56px;
-  background-color: ${colors.cab.primary};
+  background-color: #5E2FB8;
   border-radius: ${borderRadius.md}px;
   align-items: center;
   justify-content: center;
@@ -49,18 +49,18 @@ const Subtitle = styled.Text`
 
 const Arrow = styled.Text`
   font-size: 24px;
-  color: ${colors.cab.primary};
+  color: #5E2FB8;
 `;
 
 export const CabHomeCard: React.FC<CabHomeCardProps> = ({ onPress }) => {
   return (
     <Card onPress={onPress} activeOpacity={0.8}>
       <IconContainer>
-        <IconText>🚗</IconText>
+        <IconText>🧞</IconText>
       </IconContainer>
       <Content>
-        <Title>Cab Booking</Title>
-        <Subtitle>Book a ride anywhere</Subtitle>
+        <Title>Jinni Carpet</Title>
+        <Subtitle>Quick bike rides across town</Subtitle>
       </Content>
       <Arrow>›</Arrow>
     </Card>

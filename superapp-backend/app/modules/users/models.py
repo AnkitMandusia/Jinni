@@ -149,6 +149,8 @@ class DeliveryAgentProfile(Base):
 
     pincode = Column(String(10), nullable=True)
     is_available = Column(Boolean, default=False)
+    # Admin switch: may this delivery partner also take bike-taxi rides?
+    ride_enabled = Column(Boolean, default=True, nullable=False, server_default="true")
     current_lat = Column(Float, nullable=True)
     current_lng = Column(Float, nullable=True)
     last_location_at = Column(DateTime, nullable=True)

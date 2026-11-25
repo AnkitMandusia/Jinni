@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Layout, Menu, Avatar, Dropdown, Typography, Space, Drawer, Button } from 'antd';
-import { DashboardOutlined, UserOutlined, ShoppingOutlined, CarOutlined, LogoutOutlined, MenuFoldOutlined, MenuUnfoldOutlined, AppstoreOutlined, SettingOutlined, MenuOutlined, HomeOutlined } from '@ant-design/icons';
+import { DashboardOutlined, UserOutlined, ShoppingOutlined, CarOutlined, LogoutOutlined, MenuFoldOutlined, MenuUnfoldOutlined, AppstoreOutlined, SettingOutlined, MenuOutlined, HomeOutlined, ThunderboltOutlined } from '@ant-design/icons';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuthStore } from '../store/authStore';
 const { Header, Sider, Content } = Layout;
@@ -28,6 +28,7 @@ export const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
     { key: '/users', icon: <UserOutlined />, label: 'Users & Partners' },
     { key: '/orders', icon: <ShoppingOutlined />, label: 'All Orders' },
     { key: '/delivery', icon: <CarOutlined />, label: 'Delivery Agents' },
+    { key: '/rides', icon: <ThunderboltOutlined />, label: 'Rides' },
   ];
   const selected = menuItems.find(item => location.pathname === item.key || location.pathname.startsWith(item.key + '/'))?.key || (partner ? base : '/admin');
   const go = (key: string) => { navigate(key); setMobileOpen(false); };

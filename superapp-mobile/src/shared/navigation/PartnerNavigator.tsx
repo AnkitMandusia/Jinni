@@ -17,6 +17,10 @@ import { DeliveryOrdersScreen } from '@modules/delivery/screens/DeliveryOrdersSc
 import { DeliveryEarningsScreen } from '@modules/delivery/screens/DeliveryEarningsScreen';
 import { DeliveryActiveOrderScreen } from '@modules/delivery/screens/DeliveryActiveOrderScreen';
 import { DeliveryProfileScreen } from '@modules/delivery/screens/DeliveryProfileScreen';
+import { RiderRidesScreen } from '@modules/delivery/screens/RiderRidesScreen';
+import { RiderRideScreen } from '@modules/delivery/screens/RiderRideScreen';
+import { RideRequestAlert } from '@modules/delivery/components/RideRequestAlert';
+import { useRiderRidePolling } from '@modules/delivery/store/riderRideStore';
 import { RestaurantNavigator } from '@navigation/RestaurantNavigator';
 
 const Tab = createBottomTabNavigator();
@@ -67,6 +71,15 @@ const DeliveryTabs: React.FC = () => (
       }}
     />
     <Tab.Screen
+      name="Rides"
+      component={RiderRidesScreen}
+      options={{
+        tabBarLabel: 'Rides',
+        tabBarActiveTintColor: '#5E2FB8',
+        tabBarIcon: ({ color, size }) => <Ionicons name="sparkles-outline" size={size} color={color} />,
+      }}
+    />
+    <Tab.Screen
       name="Earnings"
       component={DeliveryEarningsScreen}
       options={{
@@ -87,15 +100,21 @@ const DeliveryTabs: React.FC = () => (
 
 // Stack wraps tabs + ActiveOrder (no bottom bar).
 // IncomingOrderAlert renders a Modal so it overlays any screen.
-const DeliveryNavigator: React.FC = () => (
-  <View style={{ flex: 1 }}>
-    <Stack.Navigator screenOptions={{ headerShown: false }}>
-      <Stack.Screen name="DeliveryTabs" component={DeliveryTabs} />
-      <Stack.Screen name="ActiveOrder" component={DeliveryActiveOrderScreen} />
-    </Stack.Navigator>
-    <IncomingOrderAlert />
-  </View>
-);
+const DeliveryNavigator: React.FC = () => {
+  // One shared poller for ride requests (the same partner also gets deliveries via IncomingOrderAlert).
+  useRiderRidePolling();
+  return (
+    <View style={{ flex: 1 }}>
+      <Stack.Navigator screenOptions={{ headerShown: false }}>
+        <Stack.Screen name="DeliveryTabs" component={DeliveryTabs} />
+        <Stack.Screen name="ActiveOrder" component={DeliveryActiveOrderScreen} />
+        <Stack.Screen name="RiderRide" component={RiderRideScreen} />
+      </Stack.Navigator>
+      <IncomingOrderAlert />
+      <RideRequestAlert />
+    </View>
+  );
+};
 
 // ── Generic placeholder for other roles ──────────────────────────────────────
 

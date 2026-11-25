@@ -234,6 +234,14 @@ async def accept_delivery(
             detail="You must be online to accept deliveries",
         )
 
+    # One job at a time: a partner on an active bike-taxi ride can't pick up a delivery.
+    from app.modules.rides.service import rider_has_active_ride
+    if await rider_has_active_ride(db, user.id):
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="You are on a ride right now. Finish it before accepting a delivery.",
+        )
+
     lock_key = f"delivery_accept:{order_id}"
     lock_val = str(uuid.uuid4())
     acquired = await redis.set(lock_key, lock_val, nx=True, ex=10)

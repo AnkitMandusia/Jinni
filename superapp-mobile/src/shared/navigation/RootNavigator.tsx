@@ -1,5 +1,6 @@
 import React from 'react';
 import { NavigationContainer } from '@react-navigation/native';
+import { navigationRef } from './navigationRef';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { useAuthStore } from '@auth/store/authStore';
 import { AuthStack } from './stacks/AuthStack';
@@ -42,7 +43,7 @@ export const RootNavigator: React.FC = () => {
   };
 
   return (
-    <NavigationContainer linking={linking}>
+    <NavigationContainer ref={navigationRef} linking={linking}>
       <Stack.Navigator screenOptions={{ headerShown: false }}>
         {renderMain()}
       </Stack.Navigator>

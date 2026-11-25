@@ -1,42 +1,36 @@
 import React from 'react';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { RideHomeScreen } from '@modules/cab/screens/RideHomeScreen';
-import { PickupDropScreen } from '@modules/cab/screens/PickupDropScreen';
+import { PlacePickerScreen } from '@modules/cab/screens/PlacePickerScreen';
 import { ActiveRideScreen } from '@modules/cab/screens/ActiveRideScreen';
+import { RideHistoryScreen } from '@modules/cab/screens/RideHistoryScreen';
+import { jinniColors } from '@theme/jinni';
+import { fontFamily } from '@theme/typography';
 
 export type CabStackParamList = {
   RideHome: undefined;
-  PickupDrop: undefined;
+  PlacePicker: { mode: 'pickup' | 'drop' };
   ActiveRide: { rideId: string };
+  RideHistory: undefined;
 };
 
 const Stack = createNativeStackNavigator<CabStackParamList>();
 
-export const CabStack: React.FC = () => {
-  return (
-    <Stack.Navigator 
-      screenOptions={{ 
-        headerShown: true,
-        headerBackTitleVisible: false,
-      }}
-    >
-      <Stack.Screen 
-        name="RideHome" 
-        component={RideHomeScreen}
-        options={{ title: 'Book a Ride', headerLeft: () => null }}
-      />
-      <Stack.Screen 
-        name="PickupDrop" 
-        component={PickupDropScreen}
-        options={{ title: 'Set Location' }}
-      />
-      <Stack.Screen 
-        name="ActiveRide" 
-        component={ActiveRideScreen}
-        options={{ title: 'Your Ride', headerLeft: () => null }}
-      />
-    </Stack.Navigator>
-  );
-};
+export const CabStack: React.FC = () => (
+  <Stack.Navigator
+    screenOptions={{
+      headerBackTitleVisible: false,
+      headerTintColor: jinniColors.purple[800],
+      headerTitleStyle: { fontFamily: fontFamily.bold },
+      headerShadowVisible: false,
+    }}
+  >
+    {/* RideHome and ActiveRide draw their own gradient headers */}
+    <Stack.Screen name="RideHome" component={RideHomeScreen} options={{ headerShown: false }} />
+    <Stack.Screen name="PlacePicker" component={PlacePickerScreen} options={({ route }) => ({ title: route.params?.mode === 'pickup' ? 'Pickup' : 'Drop' })} />
+    <Stack.Screen name="ActiveRide" component={ActiveRideScreen} options={{ headerShown: false, gestureEnabled: false }} />
+    <Stack.Screen name="RideHistory" component={RideHistoryScreen} options={{ title: 'Your rides' }} />
+  </Stack.Navigator>
+);
 
 export default CabStack;

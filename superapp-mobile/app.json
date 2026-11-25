@@ -5,9 +5,6 @@
     "version": "1.0.0",
     "orientation": "portrait",
     "userInterfaceStyle": "light",
-    "splash": {
-      "backgroundColor": "#FFFCF5"
-    },
     "assetBundlePatterns": [
       "**/*"
     ],
@@ -18,7 +15,8 @@
     },
     "android": {
       "adaptiveIcon": {
-        "backgroundColor": "#5E2FB8"
+        "backgroundColor": "#5E2FB8",
+        "foregroundImage": "./assets/icon.png"
       },
       "package": "com.superapp.mobile",
       "versionCode": 1,
@@ -32,7 +30,8 @@
         "android.permission.READ_EXTERNAL_STORAGE",
         "android.permission.READ_MEDIA_IMAGES",
         "android.permission.RECORD_AUDIO"
-      ]
+      ],
+      "googleServicesFile": "./src/google-services.json"
     },
     "web": {
       "bundler": "metro"
@@ -60,7 +59,18 @@
         {
           "microphonePermission": "Jinni ko apni wish bolne ke liye mic access chahiye.",
           "speechRecognitionPermission": "Jinni apki awaaz ko text me badlega, sirf tabhi jab aap mic dabayenge.",
-          "androidSpeechServicePackages": ["com.google.android.googlequicksearchbox"]
+          "androidSpeechServicePackages": [
+            "com.google.android.googlequicksearchbox"
+          ]
+        }
+      ],
+      [
+        "expo-splash-screen",
+        {
+          "image": "./assets/icon.png",
+          "backgroundColor": "#FFFCF5",
+          "imageWidth": 200,
+          "resizeMode": "contain"
         }
       ]
     ],
@@ -68,6 +78,7 @@
       "eas": {
         "projectId": "555bbb61-9722-4f61-b699-287faaebaeaa"
       }
-    }
+    },
+    "icon": "./assets/icon.png"
   }
 }

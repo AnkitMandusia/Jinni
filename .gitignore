@@ -29,3 +29,7 @@ venv/
 .pytest_cache/
 *.egg-info/
 backups/
+
+# Expo prebuild output (generated; recreate with `npx expo prebuild`)
+superapp-mobile/android/
+superapp-mobile/ios/

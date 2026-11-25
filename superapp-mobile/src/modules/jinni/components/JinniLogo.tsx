@@ -1,9 +1,8 @@
 import React from 'react';
-import { View, Text, StyleSheet, Image, ImageSourcePropType } from 'react-native';
-import { MagicLampIcon } from './MagicLampIcon';
+import { View, Text, StyleSheet } from 'react-native';
+import { JinniWordmark } from './JinniWordmark';
 import { jinniColors } from '@theme/jinni';
 import { fontFamily } from '@theme/typography';
-import { jinniAssets } from '@theme/jinniAssets';
 
 export type JinniLogoVariant = 'header' | 'hero' | 'inline' | 'splash';
 
@@ -29,34 +28,16 @@ export const JinniLogo: React.FC<JinniLogoProps> = ({
   const isInline = variant === 'inline';
   const isSplash = variant === 'splash';
 
-  const lampSize = isSplash ? 78 : isHero ? 58 : isInline ? 24 : 34;
+  // Official logo badge replaces the old lamp icon + text wordmark everywhere.
+  const logoWidth = isSplash ? 260 : isHero ? 220 : isInline ? 84 : 118;
+  void useImageLamp; // kept for API compatibility with existing callers
 
   return (
-    <View style={[styles.row, isHero && styles.heroCol]}>
-      {useImageLamp && isSplash ? (
-        <Image
-          source={jinniAssets.splashLampGlow as ImageSourcePropType}
-          style={{ width: lampSize, height: lampSize }}
-          resizeMode="contain"
-        />
-      ) : (
-        <MagicLampIcon size={lampSize} animated={isHero || variant === 'header'} />
+    <View style={[styles.row, isHero && styles.heroCol, !isHero && showTagline && styles.stackLeft]}>
+      <JinniWordmark width={logoWidth} />
+      {showTagline && (
+        <Text style={[styles.tagline, isHero && styles.taglineHero]}>{tagline}</Text>
       )}
-      <View style={isHero ? styles.heroTextWrap : styles.textWrap}>
-        <Text
-          style={[
-            styles.wordmark,
-            isHero && styles.wordmarkHero,
-            isInline && styles.wordmarkInline,
-            isSplash && styles.wordmarkSplash,
-          ]}
-        >
-          Jinni
-        </Text>
-        {showTagline && (
-          <Text style={[styles.tagline, isHero && styles.taglineHero]}>{tagline}</Text>
-        )}
-      </View>
     </View>
   );
 };
@@ -66,6 +47,11 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
+  },
+  stackLeft: {
+    flexDirection: 'column',
+    alignItems: 'flex-start',
+    gap: 6,
   },
   heroCol: {
     flexDirection: 'column',
