@@ -17,6 +17,7 @@ import { colors } from '@theme/colors';
 import { spacing } from '@theme/spacing';
 import { useAuthStore, UserRole } from '@auth/store/authStore';
 import { AuthStackParamList } from '@navigation/stacks/AuthStack';
+import { PartnerSignupScreen } from './PartnerSignupScreen';
 
 interface FieldConfig {
   key: string;
@@ -93,6 +94,13 @@ const ROLE_LABELS: Record<UserRole, string> = {
 };
 
 export const SignupFormScreen: React.FC = () => {
+  const route = useRoute<RouteProp<AuthStackParamList, 'SignupForm'>>();
+  // Delivery/ride partners get the dedicated multi-step KYC wizard (vehicle, licence, RC, insurance, emergency contact).
+  if (route.params.role === 'delivery') return <PartnerSignupScreen />;
+  return <GenericSignupForm />;
+};
+
+const GenericSignupForm: React.FC = () => {
   const navigation = useNavigation();
   const route = useRoute<RouteProp<AuthStackParamList, 'SignupForm'>>();
   const { role } = route.params;

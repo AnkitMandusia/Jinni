@@ -353,6 +353,8 @@ async def decline_order(
     # Declined orders must give their reserved stock back (previously leaked).
     await OrderService.release_reserved_stock(db, order)
     await engagement.refund_wallet_order(db, order)
+    from app.modules.rides import dues as ride_dues
+    await ride_dues.release(db, f"order:{order.id}")
     await db.commit()
 
     # Notify the customer

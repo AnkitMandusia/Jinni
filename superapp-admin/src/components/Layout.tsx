@@ -1,8 +1,9 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Layout, Menu, Avatar, Dropdown, Typography, Space, Drawer, Button } from 'antd';
 import { DashboardOutlined, UserOutlined, ShoppingOutlined, CarOutlined, LogoutOutlined, MenuFoldOutlined, MenuUnfoldOutlined, AppstoreOutlined, SettingOutlined, MenuOutlined, HomeOutlined, ThunderboltOutlined } from '@ant-design/icons';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuthStore } from '../store/authStore';
+import { getSosCount } from '../api/admin';
 const { Header, Sider, Content } = Layout;
 const { Text } = Typography;
 interface AppLayoutProps { children: React.ReactNode; }
@@ -14,6 +15,15 @@ export const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
   const location = useLocation();
   const { user, logout } = useAuthStore();
   const role = (user?.role || '').toLowerCase();
+  const [sos, setSos] = useState(0);
+  const isAdmin = role === 'admin' || role === 'super_admin';
+  useEffect(() => { // an emergency must be visible on EVERY page, not just the Rides one
+    if (!isAdmin) return;
+    const load = () => getSosCount().then((r: any) => setSos(r.open || 0)).catch(() => undefined);
+    void load();
+    const t = setInterval(load, 15000);
+    return () => clearInterval(t);
+  }, [isAdmin]);
   const restaurant = role.includes('restaurant');
   const partner = restaurant || role === 'store' || role.includes('grocery');
   const base = restaurant ? '/restaurant' : '/store';
@@ -54,6 +64,7 @@ export const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
           <Button className="mobile-nav-trigger" type="text" aria-label="Open navigation" onClick={() => setMobileOpen(true)} icon={<MenuOutlined />} />
           <div className="portal-breadcrumb"><HomeOutlined /> <span>{title}</span></div>
         </div>
+        {sos > 0 && <Button danger type="primary" onClick={() => navigate('/rides?tab=sos')} style={{ fontWeight: 700 }}>🚨 {sos} SOS</Button>}
         <Dropdown menu={{ items: userMenuItems }} placement="bottomRight">
           <Space className="portal-user-menu" style={{ cursor: 'pointer' }}>
             <Avatar size={34} style={{ background: '#4F46E5', fontWeight: 700 }}>{user?.name?.[0]?.toUpperCase() ?? 'J'}</Avatar>

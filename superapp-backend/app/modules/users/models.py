@@ -2,7 +2,7 @@
 from uuid import uuid4
 from datetime import datetime
 
-from sqlalchemy import Column, String, DateTime, Boolean, Text, Float, Integer, ForeignKey
+from sqlalchemy import Column, String, DateTime, Date, Boolean, Text, Float, Integer, ForeignKey
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
 
@@ -151,6 +151,25 @@ class DeliveryAgentProfile(Base):
     is_available = Column(Boolean, default=False)
     # Admin switch: may this delivery partner also take bike-taxi rides?
     ride_enabled = Column(Boolean, default=True, nullable=False, server_default="true")
+    # Partner's own switches (admin's `ride_enabled` is the master switch).
+    take_rides = Column(Boolean, default=True, nullable=False, server_default="true")
+    take_deliveries = Column(Boolean, default=True, nullable=False, server_default="true")
+
+    # Vehicle + KYC (validated by app.modules.delivery.kyc). Verified in person by admin before rides are allowed.
+    vehicle_class = Column(String(10), nullable=True)       # bike | auto | cab
+    vehicle_number = Column(String(15), nullable=True)      # e.g. RJ14AB1234
+    vehicle_make_model = Column(String(80), nullable=True)
+    vehicle_color = Column(String(30), nullable=True)
+    dob = Column(Date, nullable=True)
+    dl_expiry = Column(Date, nullable=True)
+    rc_expiry = Column(Date, nullable=True)
+    insurance_expiry = Column(Date, nullable=True)
+    aadhaar_last4 = Column(String(4), nullable=True)        # never store the full Aadhaar number
+    emergency_name = Column(String(80), nullable=True)
+    emergency_phone = Column(String(20), nullable=True)
+    documents_verified = Column(Boolean, default=False, nullable=False, server_default="false")
+    documents_verified_at = Column(DateTime, nullable=True)
+    documents_verified_by = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=True)
     current_lat = Column(Float, nullable=True)
     current_lng = Column(Float, nullable=True)
     last_location_at = Column(DateTime, nullable=True)

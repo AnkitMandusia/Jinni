@@ -20,7 +20,7 @@ import { DeliveryProfileScreen } from '@modules/delivery/screens/DeliveryProfile
 import { RiderRidesScreen } from '@modules/delivery/screens/RiderRidesScreen';
 import { RiderRideScreen } from '@modules/delivery/screens/RiderRideScreen';
 import { RideRequestAlert } from '@modules/delivery/components/RideRequestAlert';
-import { useRiderRidePolling } from '@modules/delivery/store/riderRideStore';
+import { useRiderRidePolling, useRideLocationSharing } from '@modules/delivery/store/riderRideStore';
 import { RestaurantNavigator } from '@navigation/RestaurantNavigator';
 
 const Tab = createBottomTabNavigator();
@@ -103,6 +103,7 @@ const DeliveryTabs: React.FC = () => (
 const DeliveryNavigator: React.FC = () => {
   // One shared poller for ride requests (the same partner also gets deliveries via IncomingOrderAlert).
   useRiderRidePolling();
+  useRideLocationSharing();
   return (
     <View style={{ flex: 1 }}>
       <Stack.Navigator screenOptions={{ headerShown: false }}>

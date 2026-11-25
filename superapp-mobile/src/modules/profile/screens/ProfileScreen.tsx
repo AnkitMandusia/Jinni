@@ -7,6 +7,7 @@ import { colors } from '@theme/colors';
 import { fontFamily, typography } from '@theme/typography';
 import { borderRadius, shadows, spacing } from '@theme/spacing';
 import { useAuthStore } from '@auth/store/authStore';
+import { useRideDues } from '@shared/hooks/useRideDues';
 
 type Row = {
   icon: keyof typeof Ionicons.glyphMap;
@@ -32,6 +33,7 @@ const MenuRow: React.FC<Row> = ({ icon, label, sub, onPress, danger }) => (
 export const ProfileScreen: React.FC = () => {
   const navigation = useNavigation<any>();
   const { user, logout } = useAuthStore();
+  const rideDues = useRideDues();
 
   const handleLogout = () => {
     Alert.alert('Log out', 'Are you sure you want to log out?', [
@@ -80,6 +82,8 @@ export const ProfileScreen: React.FC = () => {
             <MenuRow icon="wallet-outline" label="Wallet & Referral" sub="Balance, refer & earn" onPress={() => navigation.navigate('Wallet')} />
             <View style={styles.divider} />
             <MenuRow icon="list-outline" label="Shopping Lists" sub="Save & reorder groceries" onPress={() => navigation.navigate('ShoppingLists')} />
+            <View style={styles.divider} />
+            <MenuRow icon="receipt-outline" label="Ride charges" sub={rideDues.total > 0 ? `₹${rideDues.total.toFixed(0)} pending` : 'No pending charges'} onPress={() => navigation.navigate('RideCharges')} />
             <View style={styles.divider} />
             <MenuRow icon="card-outline" label="Payment Methods" sub="UPI, saved cards" onPress={() => Alert.alert('Coming soon', 'Saved payment methods are coming soon. You can still pay via UPI/COD at checkout.')} />
             <View style={styles.divider} />

@@ -1,10 +1,11 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, Alert, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Alert, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { RouteProp, useNavigation, useRoute } from '@react-navigation/native';
 import { RouteLine } from '@modules/cab/components/RouteLine';
+import { SOSSheet } from '@modules/cab/components/SOSSheet';
 import { callPhone, openInGoogleMaps } from '@modules/cab/openMaps';
 import { rideError, rideService } from '@modules/cab/services/rideService';
 import { Ride } from '@modules/cab/types';
@@ -31,6 +32,10 @@ export const RiderRideScreen: React.FC = () => {
   const refreshStore = useRiderRides((s) => s.refresh);
   const [ride, setRide] = useState<Ride | null>(null);
   const [busy, setBusy] = useState(false);
+  const [codeOpen, setCodeOpen] = useState(false);
+  const [code, setCode] = useState('');
+  const [codeError, setCodeError] = useState('');
+  const [sosOpen, setSosOpen] = useState(false);
 
   const load = useCallback(async () => {
     try { setRide(await rideService.get(rideId)); } catch (e: any) { Alert.alert('Could not load ride', rideError(e)); }
@@ -71,6 +76,23 @@ export const RiderRideScreen: React.FC = () => {
     );
   };
 
+  const startWithCode = async () => {
+    if (code.length !== 4 || !ride) return;
+    setBusy(true);
+    setCodeError('');
+    try {
+      setRide(await rideService.start(ride.id, code));
+      setCodeOpen(false);
+      void refreshStore();
+    } catch (e: any) {
+      setCodeError(rideError(e, 'That code didn’t work.'));
+      setCode('');
+      void load();
+    } finally {
+      setBusy(false);
+    }
+  };
+
   const handBack = () =>
     Alert.alert('Hand this ride back?', 'It goes to the other riders. Use this only if you cannot make it.', [
       { text: 'Keep it', style: 'cancel' },
@@ -85,7 +107,7 @@ export const RiderRideScreen: React.FC = () => {
 
   const primary =
     s === 'accepted' ? { label: "I've reached the pickup", run: () => act(() => rideService.arrived(ride.id)) }
-    : s === 'arrived' ? { label: 'Start ride', run: () => act(() => rideService.start(ride.id)) }
+    : s === 'arrived' ? { label: 'Enter ride code & start', run: () => { setCode(''); setCodeError(''); setCodeOpen(true); } }
     : s === 'in_progress' ? { label: 'Complete ride', run: complete }
     : null;
 
@@ -96,11 +118,20 @@ export const RiderRideScreen: React.FC = () => {
           <View style={styles.top}>
             <TouchableOpacity style={styles.iconBtn} onPress={() => navigation.goBack()}><Ionicons name="chevron-back" size={22} color="#fff" /></TouchableOpacity>
             <Text style={styles.num}>#{ride.ride_number}</Text>
-            <View style={{ width: 38 }} />
+            {live ? (
+              <TouchableOpacity style={styles.sosBtn} onPress={() => setSosOpen(true)} accessibilityLabel="Emergency SOS">
+                <Text style={styles.sosTxt}>SOS</Text>
+              </TouchableOpacity>
+            ) : <View style={{ width: 38 }} />}
           </View>
           <Text style={styles.stage}>{STAGE[s] ?? s}</Text>
-          <Text style={styles.fare}>₹{ride.fare.toFixed(0)}</Text>
-          <Text style={styles.meta}>{ride.distance_km.toFixed(1)} km · {ride.payment_method === 'cash' ? '💵 Cash' : '📲 UPI'}</Text>
+          <Text style={styles.fare}>₹{ride.total_payable.toFixed(0)}</Text>
+          <Text style={styles.meta}>{ride.distance_km.toFixed(1)} km · {ride.payment_method === 'cash' ? '💵 Cash' : '📲 UPI'} · {ride.vehicle_class}</Text>
+          {(ride.boost_amount > 0 || ride.dues_amount > 0 || ride.surge_multiplier > 1) && (
+            <Text style={styles.break}>
+              {[ride.surge_multiplier > 1 ? `busy ×${ride.surge_multiplier.toFixed(2).replace(/\.?0+$/, '')}` : '', ride.boost_amount > 0 ? `+₹${ride.boost_amount.toFixed(0)} added by customer` : '', ride.dues_amount > 0 ? `incl. ₹${ride.dues_amount.toFixed(0)} earlier cancellation charge` : ''].filter(Boolean).join(' · ')}
+            </Text>
+          )}
         </SafeAreaView>
       </LinearGradient>
 
@@ -149,6 +180,31 @@ export const RiderRideScreen: React.FC = () => {
         {s === 'cancelled' && <Text style={styles.cancelled}>This ride was cancelled{ride.cancel_reason ? `: ${ride.cancel_reason}` : '.'}</Text>}
       </ScrollView>
 
+      <Modal visible={codeOpen} transparent animationType="fade" onRequestClose={() => setCodeOpen(false)}>
+        <Pressable style={styles.modalBackdrop} onPress={() => setCodeOpen(false)}>
+          <Pressable style={styles.codeBox} onPress={() => undefined}>
+            <Text style={styles.codeTitle}>Enter the customer’s ride code</Text>
+            <Text style={styles.codeSub}>Ask the passenger for the 4-digit code in their app — it confirms the right person boarded.</Text>
+            <TextInput
+              style={styles.codeInput}
+              value={code}
+              onChangeText={(t) => { setCode(t.replace(/\D/g, '').slice(0, 4)); setCodeError(''); }}
+              keyboardType="number-pad"
+              maxLength={4}
+              placeholder="• • • •"
+              placeholderTextColor="#D0D5DD"
+              autoFocus
+            />
+            {!!codeError && <Text style={styles.codeErr}>{codeError}</Text>}
+            <TouchableOpacity style={[styles.codeBtn, code.length !== 4 && { opacity: 0.4 }]} onPress={startWithCode} disabled={code.length !== 4 || busy}>
+              {busy ? <ActivityIndicator color={P[900]} /> : <Text style={styles.codeBtnTxt}>Start ride</Text>}
+            </TouchableOpacity>
+          </Pressable>
+        </Pressable>
+      </Modal>
+
+      <SOSSheet visible={sosOpen} ride={ride} helpline="112" as="rider" onClose={() => setSosOpen(false)} />
+
       {primary && (
         <SafeAreaView edges={['bottom']} style={styles.footer}>
           <TouchableOpacity onPress={primary.run} disabled={busy} activeOpacity={0.9}>
@@ -167,6 +223,17 @@ const styles = StyleSheet.create({
   hero: { paddingBottom: 22, borderBottomLeftRadius: 28, borderBottomRightRadius: 28 },
   top: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16 },
   iconBtn: { width: 38, height: 38, borderRadius: 19, backgroundColor: 'rgba(255,255,255,0.14)', alignItems: 'center', justifyContent: 'center' },
+  sosBtn: { minWidth: 46, height: 34, borderRadius: 17, backgroundColor: '#D92D20', alignItems: 'center', justifyContent: 'center', paddingHorizontal: 10 },
+  sosTxt: { color: '#fff', fontFamily: fontFamily.bold, fontSize: 13, letterSpacing: 1 },
+  break: { color: G[200], fontFamily: fontFamily.medium, fontSize: 11, textAlign: 'center', marginTop: 4, paddingHorizontal: 20 },
+  modalBackdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.55)', alignItems: 'center', justifyContent: 'center', padding: 24 },
+  codeBox: { width: '100%', backgroundColor: '#fff', borderRadius: 24, padding: 22 },
+  codeTitle: { fontFamily: fontFamily.bold, fontSize: 18, color: P[900] },
+  codeSub: { fontFamily: fontFamily.regular, fontSize: 12, color: '#667085', marginTop: 4, marginBottom: 14 },
+  codeInput: { fontFamily: fontFamily.bold, fontSize: 40, letterSpacing: 10, textAlign: 'center', color: P[800], borderBottomWidth: 2, borderBottomColor: P[200], paddingVertical: 8 },
+  codeErr: { color: '#D92D20', fontFamily: fontFamily.medium, fontSize: 13, textAlign: 'center', marginTop: 8 },
+  codeBtn: { marginTop: 18, backgroundColor: G[400], paddingVertical: 15, borderRadius: 14, alignItems: 'center' },
+  codeBtnTxt: { color: P[900], fontFamily: fontFamily.bold, fontSize: 16 },
   num: { color: G[200], fontFamily: fontFamily.bold, letterSpacing: 1.5, fontSize: 13 },
   stage: { color: '#fff', fontFamily: fontFamily.bold, fontSize: 18, textAlign: 'center', marginTop: 8 },
   fare: { color: G[300], fontFamily: fontFamily.bold, fontSize: 44, textAlign: 'center' },

@@ -77,14 +77,24 @@ export const assignRide = (id: string, rider_id: string) => apiClient.post(`/adm
 export const cancelRide = (id: string, reason: string) => apiClient.post(`/admin/rides/${id}/cancel`, { reason });
 export const adjustRideFare = (id: string, fare: number, reason: string) =>
   apiClient.patch(`/admin/rides/${id}/fare`, { fare, reason });
+export const waiveRideFee = (id: string, reason: string) => apiClient.post(`/admin/rides/${id}/waive-fee`, { reason });
 export const markRidePaid = (id: string, reference?: string) =>
   apiClient.post(`/admin/rides/${id}/mark-paid`, { reference });
 export const getRideSettings = () => apiClient.get('/admin/rides/settings');
 export const saveRideSettings = (payload: Record<string, unknown>) => apiClient.put('/admin/rides/settings', payload);
+export const saveRideFare = (vehicleClass: string, payload: Record<string, unknown>) =>
+  apiClient.put(`/admin/rides/fares/${vehicleClass}`, payload);
+export const getPricingPreview = () => apiClient.get('/admin/rides/pricing/preview');
 export const getRidePlaces = () => apiClient.get('/admin/rides/places');
 export const saveRidePlace = (payload: Record<string, unknown>, id?: string) =>
   id ? apiClient.put(`/admin/rides/places/${id}`, payload) : apiClient.post('/admin/rides/places', payload);
 export const deleteRidePlace = (id: string) => apiClient.delete(`/admin/rides/places/${id}`);
+export const importOsmPlaces = (payload: Record<string, unknown>) => apiClient.post('/admin/rides/places/import-osm', payload, { timeout: 90000 });
+export const bulkActivatePlaces = (ids: string[], is_active: boolean) =>
+  apiClient.post('/admin/rides/places/bulk-active', { ids, is_active });
 export const getRidePartners = () => apiClient.get('/admin/rides/partners');
-export const setRidePartner = (id: string, ride_enabled: boolean) =>
-  apiClient.patch(`/admin/rides/partners/${id}`, { ride_enabled });
+export const patchRidePartner = (id: string, payload: Record<string, unknown>) =>
+  apiClient.patch(`/admin/rides/partners/${id}`, payload);
+export const getSosList = (status = 'open') => apiClient.get('/admin/rides/sos', { params: { status } });
+export const resolveSos = (id: string, resolution: string) => apiClient.post(`/admin/rides/sos/${id}/resolve`, { resolution });
+export const getSosCount = () => apiClient.get('/admin/rides/sos-count');

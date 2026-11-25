@@ -7,7 +7,9 @@ import { typography, fontFamily } from '@theme/typography';
 
 const IDLE = require('../../../../assets/chirag_carpet_idle.png') as ImageSourcePropType;
 const TAKEOFF = require('../../../../assets/chirag_carpet_takeoff.png') as ImageSourcePropType;
-const ARRIVED = require('../../../../assets/chirag_carpet_arrived.png') as ImageSourcePropType;
+// chirag_carpet_arrived.png has NO alpha channel (a checkerboard is baked into its pixels), so the calm
+// transparent idle art is used for the 'arrived' stage instead.
+const ARRIVED = IDLE;
 
 export type MagicJourneyStage = 'idle' | 'takeoff' | 'journey' | 'arrived';
 
