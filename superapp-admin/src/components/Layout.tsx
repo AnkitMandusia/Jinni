@@ -52,14 +52,14 @@ export const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
 
   return <Layout className="portal-layout" style={{ minHeight: '100vh' }}>
     <Sider className="portal-sider desktop-sider" collapsible collapsed={collapsed} trigger={null} breakpoint="lg" onBreakpoint={broken => setCollapsed(broken)} width={244} style={{ boxShadow: '2px 0 12px rgba(26,12,53,.18)' }}>
-      <div className="portal-brand">
-        <span className="portal-brand-mark">j</span>
-        {!collapsed && <span>jinni<span style={{ color: '#F3DD96' }}>.</span><small>{title}</small></span>}
+      <div className={`portal-brand${collapsed ? ' portal-brand-collapsed' : ''}`}>
+        <img className="portal-brand-logo" src={collapsed ? '/favicon.svg' : '/jinni-logo.svg'} alt="Jinni" />
+        {!collapsed && <small>{title}</small>}
       </div>
       {navMenu}
       {!collapsed && <div className="portal-sider-foot">Food · Grocery · Local business</div>}
     </Sider>
-    <Drawer className="portal-mobile-drawer" title={<span className="portal-brand-inline"><span className="portal-brand-mark">j</span> Jinni · {title}</span>} placement="left" open={mobileOpen} onClose={() => setMobileOpen(false)} width={280} styles={{ body: { background: '#2A1354', padding: '8px 0' } }}>
+    <Drawer className="portal-mobile-drawer" title={<span className="portal-brand-inline"><img src="/jinni-logo.svg" alt="Jinni" />{title}</span>} placement="left" open={mobileOpen} onClose={() => setMobileOpen(false)} width={280} styles={{ body: { background: '#2A1354', padding: '8px 0' } }}>
       {navMenu}
     </Drawer>
     <Layout>

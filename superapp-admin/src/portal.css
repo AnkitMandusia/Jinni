@@ -4,10 +4,13 @@
 .portal-breadcrumb{display:flex;align-items:center;gap:9px;color:#667085;font-size:13px;font-weight:600}
 .portal-user-copy{display:flex;flex-direction:column;line-height:1.25}
 .portal-user-copy small{font-size:10px;color:#98A2B3}
-.portal-brand{height:76px;display:flex;align-items:center;gap:12px;padding:0 22px;color:#fff;font:800 22px Manrope,Arial,sans-serif;letter-spacing:-1px;border-bottom:1px solid rgba(255,255,255,.08)}
-.portal-brand small{display:block;color:#CBB4F0;font:500 10px Arial,sans-serif;letter-spacing:.04em;margin-top:3px}
-.portal-brand-mark{width:36px;height:36px;border-radius:12px 12px 12px 4px;background:linear-gradient(135deg,#F3DD96,#C9971A);color:#1A0C35;display:grid;place-items:center;font:800 26px Arial,sans-serif;flex-shrink:0}
+.portal-brand{height:82px;display:flex;flex-direction:column;align-items:flex-start;justify-content:center;gap:1px;padding:6px 18px;color:#fff;border-bottom:1px solid rgba(255,255,255,.08)}
+.portal-brand-logo{display:block;width:132px;height:auto}
+.portal-brand small{display:block;color:#CBB4F0;font:500 10px Arial,sans-serif;letter-spacing:.04em;margin-left:4px}
+.portal-brand-collapsed{align-items:center;padding:8px}
+.portal-brand-collapsed .portal-brand-logo{width:42px}
 .portal-brand-inline{display:flex;align-items:center;gap:10px;font-weight:700}
+.portal-brand-inline img{display:block;width:94px;height:auto}
 .portal-sider-foot{position:absolute;bottom:20px;left:22px;right:15px;color:#667085;font-size:10px}
 .portal-content{margin:clamp(12px,2.2vw,28px);min-height:calc(100vh - 124px)}
 .mobile-nav-trigger,.portal-mobile-drawer{display:none!important}
