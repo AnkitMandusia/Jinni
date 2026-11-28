@@ -45,7 +45,8 @@ def _db_for_cancel(order, items=(), products=None):
     first = MagicMock(); first.scalar_one_or_none.return_value = order
     second = MagicMock(); second.scalars.return_value.all.return_value = list(items)
     db = MagicMock()
-    db.execute = AsyncMock(side_effect=[first, second])
+    third = MagicMock()  # ride_dues.release() UPDATE
+    db.execute = AsyncMock(side_effect=[first, second, third, third])
     db.get = AsyncMock(side_effect=lambda model, pk: (products or {}).get(pk))
     db.commit = AsyncMock()
     db.refresh = AsyncMock()

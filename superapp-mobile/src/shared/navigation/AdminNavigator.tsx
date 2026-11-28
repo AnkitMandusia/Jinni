@@ -7,6 +7,8 @@ import { UserManagementScreen } from '@modules/admin/screens/UserManagementScree
 import { AdminOrdersScreen } from '@modules/admin/screens/AdminOrdersScreen';
 import { AdminProductsScreen } from '@modules/admin/screens/AdminProductsScreen';
 import { AdminRestaurantsScreen } from '@modules/admin/screens/AdminRestaurantsScreen';
+import { AdminStoresScreen } from '@modules/admin/screens/AdminStoresScreen';
+import { AdminFinanceScreen } from '@modules/admin/screens/AdminFinanceScreen';
 import { AddProductScreen } from '@modules/grocery/screens/AddProductScreen';
 import { DeliveryVerificationScreen } from '@modules/admin/screens/DeliveryVerificationScreen';
 import { colors } from '@theme/colors';
@@ -17,6 +19,8 @@ export type AdminTabParamList = {
   AdminOrders: undefined;
   AdminProducts: undefined;
   AdminRestaurants: undefined;
+  AdminStores: undefined;
+  AdminFinance: undefined;
 };
 
 export type AdminStackParamList = {
@@ -54,6 +58,8 @@ const AdminTabs: React.FC = () => (
             AdminOrders: { active: 'receipt', inactive: 'receipt-outline' },
             AdminProducts: { active: 'cube', inactive: 'cube-outline' },
             AdminRestaurants: { active: 'restaurant', inactive: 'restaurant-outline' },
+            AdminStores: { active: 'storefront', inactive: 'storefront-outline' },
+            AdminFinance: { active: 'wallet', inactive: 'wallet-outline' },
           };
           const iconSet = icons[route.name] ?? icons.Dashboard;
           const iconName: IoniconName = focused ? iconSet.active : iconSet.inactive;
@@ -61,11 +67,13 @@ const AdminTabs: React.FC = () => (
         },
       })}
     >
-      <Tab.Screen name="Dashboard" component={AdminDashboardScreen} options={{ tabBarLabel: 'Dashboard' }} />
+      <Tab.Screen name="Dashboard" component={AdminDashboardScreen} options={{ tabBarLabel: 'Home' }} />
       <Tab.Screen name="Users" component={UserManagementScreen} options={{ tabBarLabel: 'Users' }} />
       <Tab.Screen name="AdminOrders" component={AdminOrdersScreen} options={{ tabBarLabel: 'Orders' }} />
       <Tab.Screen name="AdminProducts" component={AdminProductsScreen} options={{ tabBarLabel: 'Products' }} />
-      <Tab.Screen name="AdminRestaurants" component={AdminRestaurantsScreen} options={{ tabBarLabel: 'Restaurants' }} />
+      <Tab.Screen name="AdminRestaurants" component={AdminRestaurantsScreen} options={{ tabBarLabel: 'Eateries' }} />
+      <Tab.Screen name="AdminStores" component={AdminStoresScreen} options={{ tabBarLabel: 'Stores' }} />
+      <Tab.Screen name="AdminFinance" component={AdminFinanceScreen} options={{ tabBarLabel: 'Finance' }} />
     </Tab.Navigator>
 );
 

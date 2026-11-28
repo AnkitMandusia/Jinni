@@ -1,0 +1,32 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="95 80 715 310">
+  <defs>
+    <linearGradient id="brandIndigo" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#3B1C70"/>
+      <stop offset="50%" stop-color="#24104B"/>
+      <stop offset="100%" stop-color="#150730"/>
+    </linearGradient>
+    <linearGradient id="magicGold" x1="0%" y1="100%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#FF7A00"/>
+      <stop offset="50%" stop-color="#FFB800"/>
+      <stop offset="100%" stop-color="#FFDE6A"/>
+    </linearGradient>
+    <linearGradient id="letterGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#FFFFFF"/>
+      <stop offset="100%" stop-color="#E5D9FA"/>
+    </linearGradient>
+  </defs>
+  <rect x="95" y="80" width="715" height="310" rx="44" fill="url(#brandIndigo)"/>
+  <g transform="translate(140, 110)">
+    <path d="M 62 70 C 62 60, 68 50, 78 46 L 102 38 C 112 34, 120 25, 122 15 C 123 10, 122 0, 122 0 L 154 0 C 154 25, 142 50, 124 64 C 118 69, 114 74, 114 82 L 114 180 C 114 220, 86 248, 44 248 C 12 248, -8 226, -10 196 L 26 192 C 28 206, 38 214, 50 214 C 68 214, 80 200, 80 180 L 80 82 C 80 74, 72 70, 62 70 Z" fill="url(#letterGradient)"/>
+    <rect x="175" y="80" width="34" height="130" rx="17" fill="url(#letterGradient)"/>
+    <path d="M 192 18 C 192 38, 180 50, 160 50 C 180 50, 192 62, 192 82 C 192 62, 204 50, 224 50 C 204 50, 192 38, 192 18 Z" fill="url(#magicGold)"/>
+    <path d="M 238 80 L 270 80 L 270 102 C 282 86, 300 76, 324 76 C 356 76, 374 96, 374 132 L 374 210 L 340 210 L 340 138 C 340 114, 328 104, 308 104 C 288 104, 272 120, 272 144 L 272 210 L 238 210 Z" fill="url(#letterGradient)"/>
+    <path d="M 402 80 L 434 80 L 434 102 C 446 86, 464 76, 488 76 C 520 76, 538 96, 538 132 L 538 210 L 504 210 L 504 138 C 504 114, 492 104, 472 104 C 452 104, 436 120, 436 144 L 436 210 L 402 210 Z" fill="url(#letterGradient)"/>
+    <rect x="566" y="80" width="34" height="130" rx="17" fill="url(#letterGradient)"/>
+    <circle cx="583" cy="40" r="17" fill="url(#magicGold)"/>
+    <path d="M 583 29 C 583 36, 578 40, 571 40 C 578 40, 583 44, 583 51 C 583 44, 588 40, 595 40 C 588 40, 583 36, 583 29 Z" fill="#24104B"/>
+    <path d="M 80 226 C 120 238, 200 244, 280 244 C 400 244, 520 232, 600 220" fill="none" stroke="url(#magicGold)" stroke-width="5" stroke-linecap="round" opacity="0.85"/>
+    <circle cx="622" cy="216" r="4" fill="#FFDE6A" opacity="0.9"/>
+    <circle cx="638" cy="212" r="2.5" fill="#FF7A00" opacity="0.7"/>
+  </g>
+</svg>

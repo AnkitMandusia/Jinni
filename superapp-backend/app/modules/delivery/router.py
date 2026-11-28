@@ -46,9 +46,23 @@ class UpdateDeliveryProfileRequest(BaseModel):
     bank_account: Optional[str] = None
     bank_ifsc: Optional[str] = None
     upi_id: Optional[str] = None
+    # Job preferences (the partner's own switches; admin has the master ride switch)
+    take_rides: Optional[bool] = None
+    take_deliveries: Optional[bool] = None
+    # Renewals / contact (vehicle class, number & licence number are changed by admin after re-verification)
+    dl_expiry: Optional[str] = None
+    rc_expiry: Optional[str] = None
+    insurance_expiry: Optional[str] = None
+    emergency_name: Optional[str] = None
+    emergency_phone: Optional[str] = None
 
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
+
+def deliveries_allowed(profile: DeliveryAgentProfile) -> bool:
+    """Food/grocery are carried on two-wheelers. Auto and cab partners are ride-only."""
+    return (profile.vehicle_class or "bike") == "bike"
+
 
 def _require_delivery(user: User) -> None:
     if user.role != "delivery":
@@ -154,15 +168,40 @@ async def get_dashboard(
         for o in active_orders_rows
     ]
 
+    # ── rides (same partner, same dashboard) ──
+    from app.modules.rides import service as ride_service
+    from app.modules.rides.models import Ride, RideStatus
+    from app.modules.rides.router import ride_block_reason
+    rides_today = (await db.execute(select(Ride).where(
+        Ride.rider_id == user.id, Ride.status == RideStatus.COMPLETED, Ride.completed_at >= today_start))).scalars().all()
+    ride_earnings = float(sum((r.rider_amount if r.rider_amount is not None else r.fare) for r in rides_today))  # net of platform commission
+    ride_cash = float(sum(ride_service.total_payable(r) for r in rides_today
+                          if r.payment_method == "cash" and r.payment_status == "paid"))
+    active_ride = (await db.execute(select(Ride).where(
+        Ride.rider_id == user.id, Ride.status.in_(RideStatus.RIDER_ACTIVE)).limit(1))).scalar_one_or_none()
+
     return {
         "is_online": profile.is_available,
         "agent_name": profile.name,
         "vehicle_type": profile.vehicle_type,
+        "vehicle_class": profile.vehicle_class,
+        "vehicle_number": profile.vehicle_number,
         "active_orders": active_orders_data,
+        "active_ride": ({"id": str(active_ride.id), "ride_number": active_ride.ride_number, "status": active_ride.status,
+                         "pickup": active_ride.pickup_text, "drop": active_ride.drop_text,
+                         "fare": float(ride_service.total_payable(active_ride))} if active_ride else None),
+        "preferences": {"deliveries_allowed": deliveries_allowed(profile), "take_deliveries": bool(profile.take_deliveries) and deliveries_allowed(profile), "take_rides": bool(profile.take_rides),
+                        "rides_allowed_by_admin": bool(profile.ride_enabled),
+                        "ride_blocked_reason": ride_block_reason(profile) if profile.ride_enabled else
+                        "Rides are not enabled for your account. Contact admin."},
         "today_stats": {
             "orders_count": today_count,
             "earnings": today_earnings,
             "cod_collected": cod_collected,
+            "rides_count": len(rides_today),
+            "ride_earnings": ride_earnings,
+            "ride_cash_collected": ride_cash,
+            "total_earnings": today_earnings + ride_earnings,
         },
     }
 
@@ -181,6 +220,8 @@ async def get_available_orders(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Go online first to see available orders",
         )
+    if not profile.take_deliveries or not deliveries_allowed(profile):  # rides-only (by choice or vehicle)
+        return []
 
     filters = [
         Order.status == "ready_for_pickup",
@@ -234,6 +275,9 @@ async def accept_delivery(
             detail="You must be online to accept deliveries",
         )
 
+    if not deliveries_allowed(profile):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN,
+                            detail="Food and grocery deliveries are for bike partners. Your vehicle takes rides only.")
     # One job at a time: a partner on an active bike-taxi ride can't pick up a delivery.
     from app.modules.rides.service import rider_has_active_ride
     if await rider_has_active_ride(db, user.id):
@@ -444,7 +488,7 @@ async def get_earnings(
     )
     orders = result.scalars().all()
 
-    total_earnings = sum(float(o.delivery_fee or 0) for o in orders)
+    total_earnings = sum(float(o.rider_amount if o.rider_amount is not None else (o.delivery_fee or 0)) for o in orders)
     cod_collected = sum(float(o.total_amount or 0) for o in orders if str(o.payment_method) == "cod")
 
     return {
@@ -457,7 +501,7 @@ async def get_earnings(
                 "id": str(o.id),
                 "order_number": o.order_number,
                 "total_amount": float(o.total_amount),
-                "delivery_fee": float(o.delivery_fee or 0),
+                "delivery_fee": float(o.rider_amount if o.rider_amount is not None else (o.delivery_fee or 0)),
                 "payment_method": str(o.payment_method),
                 "delivered_at": o.delivered_at.isoformat() if o.delivered_at else None,
             }
@@ -521,6 +565,23 @@ async def get_delivery_profile(
         "is_available": profile.is_available,
         "current_lat": profile.current_lat,
         "current_lng": profile.current_lng,
+        # vehicle + KYC (read-only here; renewals via PATCH)
+        "vehicle_class": profile.vehicle_class,
+        "vehicle_number": profile.vehicle_number,
+        "vehicle_make_model": profile.vehicle_make_model,
+        "vehicle_color": profile.vehicle_color,
+        "dl_expiry": profile.dl_expiry.isoformat() if profile.dl_expiry else None,
+        "rc_expiry": profile.rc_expiry.isoformat() if profile.rc_expiry else None,
+        "insurance_expiry": profile.insurance_expiry.isoformat() if profile.insurance_expiry else None,
+        "emergency_name": profile.emergency_name,
+        "emergency_phone": profile.emergency_phone,
+        "documents_verified": bool(profile.documents_verified),
+        "take_rides": bool(profile.take_rides),
+        "take_deliveries": bool(profile.take_deliveries) and deliveries_allowed(profile),
+        "deliveries_allowed": deliveries_allowed(profile),
+        "rating": profile.rating,
+        "rating_count": profile.rating_count,
+        "kyc_issues": __import__("app.modules.delivery.kyc", fromlist=["expiry_issues"]).expiry_issues(profile),
     }
 
 
@@ -542,7 +603,32 @@ async def update_delivery_profile(
     if data.bank_ifsc is not None:
         profile.bank_ifsc = data.bank_ifsc
     if data.upi_id is not None:
-        profile.upi_id = data.upi_id
+        import re as _re
+        if data.upi_id and not _re.match(r"^[\w.\-]{2,}@[\w.\-]{2,}$", data.upi_id):
+            raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Enter a valid UPI id (e.g. name@okaxis)")
+        profile.upi_id = data.upi_id or None
+    if data.take_rides is not None:
+        profile.take_rides = data.take_rides
+    if data.take_deliveries is not None:
+        profile.take_deliveries = data.take_deliveries
+    from app.modules.delivery import kyc as _kyc
+    try:
+        for attr, label in (("dl_expiry", "Licence expiry"), ("rc_expiry", "Registration expiry"),
+                            ("insurance_expiry", "Insurance expiry")):
+            raw = getattr(data, attr)
+            if raw:
+                d = _kyc.parse_date(raw, label)
+                if d <= datetime.utcnow().date():
+                    raise ValueError(f"{label} must be a future date")
+                setattr(profile, attr, d)
+        if data.emergency_name is not None or data.emergency_phone is not None:
+            name = (data.emergency_name if data.emergency_name is not None else profile.emergency_name or "").strip()
+            phone = (data.emergency_phone if data.emergency_phone is not None else profile.emergency_phone or "").strip()
+            if not name or not _kyc.valid_phone(phone):
+                raise ValueError("Emergency contact needs a name and a valid 10-digit mobile number")
+            profile.emergency_name, profile.emergency_phone = name[:80], phone
+    except ValueError as e:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(e))
     await db.commit()
     return {
         "message": "Profile updated",

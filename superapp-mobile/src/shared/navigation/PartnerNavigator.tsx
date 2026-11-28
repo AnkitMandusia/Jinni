@@ -20,7 +20,7 @@ import { DeliveryProfileScreen } from '@modules/delivery/screens/DeliveryProfile
 import { RiderRidesScreen } from '@modules/delivery/screens/RiderRidesScreen';
 import { RiderRideScreen } from '@modules/delivery/screens/RiderRideScreen';
 import { RideRequestAlert } from '@modules/delivery/components/RideRequestAlert';
-import { useRiderRidePolling } from '@modules/delivery/store/riderRideStore';
+import { useRiderRidePolling, useRideLocationSharing, useDeliveryEligibility } from '@modules/delivery/store/riderRideStore';
 import { RestaurantNavigator } from '@navigation/RestaurantNavigator';
 
 const Tab = createBottomTabNavigator();
@@ -37,7 +37,9 @@ const ROLE_CONFIG: Record<string, { title: string; icon: string; color: string }
 
 // ── Delivery-specific tab navigator ─────────────────────────────────────────
 
-const DeliveryTabs: React.FC = () => (
+const DeliveryTabs: React.FC = () => {
+  const canDeliver = useDeliveryEligibility((s: any) => s.allowed);
+  return (
   <Tab.Navigator
     screenOptions={{
       headerShown: false,
@@ -66,6 +68,7 @@ const DeliveryTabs: React.FC = () => (
       name="Orders"
       component={DeliveryOrdersScreen}
       options={{
+        tabBarButton: canDeliver ? undefined : () => null, // auto/cab partners are ride-only
         tabBarLabel: 'Orders',
         tabBarIcon: ({ color, size }) => <Ionicons name="list-outline" size={size} color={color} />,
       }}
@@ -96,13 +99,15 @@ const DeliveryTabs: React.FC = () => (
       }}
     />
   </Tab.Navigator>
-);
+  );
+};
 
 // Stack wraps tabs + ActiveOrder (no bottom bar).
 // IncomingOrderAlert renders a Modal so it overlays any screen.
 const DeliveryNavigator: React.FC = () => {
   // One shared poller for ride requests (the same partner also gets deliveries via IncomingOrderAlert).
   useRiderRidePolling();
+  useRideLocationSharing();
   return (
     <View style={{ flex: 1 }}>
       <Stack.Navigator screenOptions={{ headerShown: false }}>

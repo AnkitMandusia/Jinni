@@ -48,7 +48,7 @@ export const LoginPage: React.FC = () => {
     <div style={{ minHeight: '100vh', padding: 20, display: 'grid', placeItems: 'center', background: 'radial-gradient(circle at 15% 10%, #eef2ff 0, #f8fafc 42%, #f1f5f9 100%)' }}>
       <Card bordered={false} style={{ width: '100%', maxWidth: 430, borderRadius: 22, boxShadow: '0 22px 70px rgba(15,23,42,.12)' }} bodyStyle={{ padding: 36 }}>
         <div style={{ textAlign: 'center', marginBottom: 30 }}>
-          <div style={{ width: 54, height: 54, margin: '0 auto 14px', borderRadius: 18, display: 'grid', placeItems: 'center', background: '#d9ef73', color: '#20241d', fontSize: 32, fontWeight: 800 }}>j</div>
+          <img src="/jinni-logo.svg" alt="Jinni" style={{ display: 'block', width: 150, height: 'auto', margin: '0 auto 14px', borderRadius: 10 }} />
           <Title level={2} style={{ margin: 0, letterSpacing: -1 }}>Welcome back</Title>
           <Text type="secondary">Sign in with the same Jinni account you use in the mobile app.</Text>
         </div>

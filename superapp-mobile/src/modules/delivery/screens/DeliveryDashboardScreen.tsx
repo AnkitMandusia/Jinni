@@ -1,3 +1,4 @@
+import { useDeliveryEligibility } from '../store/riderRideStore';
 import React, { useState, useCallback } from 'react';
 import {
   View,
@@ -23,11 +24,19 @@ interface DashboardData {
   is_online: boolean;
   agent_name: string;
   vehicle_type: string;
+  vehicle_class?: 'bike' | 'auto' | 'cab' | null;
+  vehicle_number?: string | null;
   active_orders: ActiveOrder[];
+  active_ride?: { id: string; ride_number: string; status: string; pickup: string; drop: string; fare: number } | null;
+  preferences?: { deliveries_allowed?: boolean; take_deliveries: boolean; take_rides: boolean; rides_allowed_by_admin: boolean; ride_blocked_reason?: string | null };
   today_stats: {
     orders_count: number;
     earnings: number;
     cod_collected: number;
+    rides_count?: number;
+    ride_earnings?: number;
+    ride_cash_collected?: number;
+    total_earnings?: number;
   };
 }
 
@@ -63,11 +72,13 @@ export const DeliveryDashboardScreen: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [toggling, setToggling] = useState(false);
+  const [savingPref, setSavingPref] = useState<string | null>(null);
 
   const fetchDashboard = useCallback(async () => {
     try {
       const res = await api.get<DashboardData>('/delivery/dashboard');
       setData(res);
+      useDeliveryEligibility.getState().set(res.preferences?.deliveries_allowed !== false);
     } catch (e: any) {
       console.error('Dashboard error:', e?.response?.data || e?.message);
     } finally {
@@ -91,6 +102,19 @@ export const DeliveryDashboardScreen: React.FC = () => {
       Alert.alert('Error', e?.response?.data?.detail || 'Failed to update status');
     } finally {
       setToggling(false);
+    }
+  };
+
+  const setPref = async (key: 'take_rides' | 'take_deliveries', value: boolean) => {
+    setSavingPref(key);
+    try {
+      await api.patch('/delivery/profile', { [key]: value });
+      setData((prev) => (prev && prev.preferences ? { ...prev, preferences: { ...prev.preferences, [key]: value } } : prev));
+      void fetchDashboard();
+    } catch (e: any) {
+      Alert.alert('Could not update', e?.response?.data?.detail || 'Please try again.');
+    } finally {
+      setSavingPref(null);
     }
   };
 
@@ -121,7 +145,10 @@ export const DeliveryDashboardScreen: React.FC = () => {
             <Text style={styles.greeting}>Hello,</Text>
             <Text style={styles.agentName}>{data?.agent_name ?? user?.name ?? 'Agent'}</Text>
             {data?.vehicle_type ? (
-              <Text style={styles.vehicleType}>🏍️ {data.vehicle_type}</Text>
+              <Text style={styles.vehicleType}>
+                {data.vehicle_class === 'auto' ? '🛺' : data.vehicle_class === 'cab' ? '🚕' : '🏍️'} {data.vehicle_type}
+                {data.vehicle_number ? ` · ${data.vehicle_number}` : ''}
+              </Text>
             ) : null}
           </View>
           <TouchableOpacity onPress={() => Alert.alert('Logout', 'Are you sure?', [
@@ -139,7 +166,9 @@ export const DeliveryDashboardScreen: React.FC = () => {
             <View>
               <Text style={styles.toggleTitle}>{isOnline ? 'You are Online' : 'You are Offline'}</Text>
               <Text style={styles.toggleSub}>
-                {isOnline ? 'Ready to receive orders' : 'Go online to get assignments'}
+                {data?.preferences?.deliveries_allowed === false
+                  ? (isOnline ? 'Ready for rides' : 'Go online to get rides')
+                  : (isOnline ? 'Ready for deliveries and rides' : 'Go online to get deliveries and rides')}
               </Text>
             </View>
           </View>
@@ -154,6 +183,55 @@ export const DeliveryDashboardScreen: React.FC = () => {
             />
           )}
         </View>
+
+        {/* One partner, two kinds of work: pick what you want right now */}
+        {data?.preferences && (
+          <View style={styles.prefCard}>
+            <Text style={styles.prefTitle}>What I’ll take</Text>
+            {data.preferences.deliveries_allowed === false ? (
+              <View style={styles.prefRow}>
+                <Ionicons name="information-circle-outline" size={20} color={colors.gray[500]} />
+                <Text style={[styles.prefName, { flex: 1, marginLeft: 10, color: colors.gray[600] }]}>
+                  Food & grocery deliveries are for bike partners. Your {data.vehicle_class === 'cab' ? 'cab' : 'auto'} takes Jinni Carpet rides only.
+                </Text>
+              </View>
+            ) : (
+            <View style={styles.prefRow}>
+              <Ionicons name="bag-handle-outline" size={20} color={colors.primary[500]} />
+              <View style={{ flex: 1, marginLeft: 10 }}>
+                <Text style={styles.prefName}>Food & grocery deliveries</Text>
+              </View>
+              {savingPref === 'take_deliveries' ? <ActivityIndicator /> : (
+                <Switch value={data.preferences.take_deliveries} onValueChange={(v) => setPref('take_deliveries', v)}
+                  trackColor={{ false: colors.gray[300], true: colors.success.light }} thumbColor={data.preferences.take_deliveries ? colors.success.DEFAULT : colors.gray[400]} />
+              )}
+            </View>
+            )}
+            <View style={styles.prefRow}>
+              <Ionicons name="sparkles-outline" size={20} color="#5E2FB8" />
+              <View style={{ flex: 1, marginLeft: 10 }}>
+                <Text style={styles.prefName}>Jinni Carpet rides</Text>
+                {!!data.preferences.ride_blocked_reason && data.preferences.take_rides && (
+                  <Text style={styles.prefWarn}>{data.preferences.ride_blocked_reason}</Text>
+                )}
+              </View>
+              {savingPref === 'take_rides' ? <ActivityIndicator /> : (
+                <Switch value={data.preferences.take_rides} disabled={!data.preferences.rides_allowed_by_admin}
+                  onValueChange={(v) => setPref('take_rides', v)}
+                  trackColor={{ false: colors.gray[300], true: '#CBB4F0' }} thumbColor={data.preferences.take_rides ? '#5E2FB8' : colors.gray[400]} />
+              )}
+            </View>
+          </View>
+        )}
+
+        {/* Current ride (a partner has ONE job at a time: ride or delivery) */}
+        {data?.active_ride && (
+          <TouchableOpacity style={styles.rideCard} activeOpacity={0.9} onPress={() => navigation.navigate('RiderRide', { rideId: data.active_ride!.id })}>
+            <Text style={styles.rideLbl}>CURRENT RIDE · {data.active_ride.status.replace('_', ' ').toUpperCase()}</Text>
+            <Text style={styles.rideRoute} numberOfLines={1}>{data.active_ride.pickup} → {data.active_ride.drop}</Text>
+            <Text style={styles.rideFare}>₹{data.active_ride.fare.toFixed(0)} · tap to continue</Text>
+          </TouchableOpacity>
+        )}
 
         {/* Active Orders — show all, no limit */}
         {data?.active_orders && data.active_orders.length > 0 && (
@@ -189,7 +267,7 @@ export const DeliveryDashboardScreen: React.FC = () => {
         )}
 
         {/* Find Available Orders — always visible when online */}
-        {isOnline && (
+        {isOnline && (data?.preferences?.take_deliveries ?? true) && data?.preferences?.deliveries_allowed !== false && !data?.active_ride && (
           <TouchableOpacity
             style={styles.findOrdersCard}
             onPress={() => navigation.navigate('Orders')}
@@ -203,6 +281,13 @@ export const DeliveryDashboardScreen: React.FC = () => {
         {/* Today's Stats */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Today's Summary</Text>
+          <View style={styles.totalCard}>
+            <Text style={styles.totalLbl}>TOTAL TODAY · DELIVERIES + RIDES</Text>
+            <Text style={styles.totalAmt}>₹{(data?.today_stats?.total_earnings ?? data?.today_stats?.earnings ?? 0).toFixed(0)}</Text>
+            <Text style={styles.totalSub}>
+              {data?.today_stats?.orders_count ?? 0} deliveries · ₹{(data?.today_stats?.earnings ?? 0).toFixed(0)}   |   {data?.today_stats?.rides_count ?? 0} rides · ₹{(data?.today_stats?.ride_earnings ?? 0).toFixed(0)}
+            </Text>
+          </View>
           <View style={styles.statsRow}>
             <View style={[styles.statCard, { borderLeftColor: colors.primary[500] }]}>
               <Ionicons name="checkmark-circle-outline" size={22} color={colors.primary[500]} />
@@ -226,9 +311,15 @@ export const DeliveryDashboardScreen: React.FC = () => {
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Quick Actions</Text>
           <View style={styles.actionsGrid}>
-            <TouchableOpacity style={styles.actionCard} onPress={() => navigation.navigate('Orders')}>
-              <Ionicons name="list-outline" size={28} color={colors.primary[500]} />
-              <Text style={styles.actionLabel}>Available Orders</Text>
+            {data?.preferences?.deliveries_allowed !== false && (
+              <TouchableOpacity style={styles.actionCard} onPress={() => navigation.navigate('Orders')}>
+                <Ionicons name="list-outline" size={28} color={colors.primary[500]} />
+                <Text style={styles.actionLabel}>Available Orders</Text>
+              </TouchableOpacity>
+            )}
+            <TouchableOpacity style={styles.actionCard} onPress={() => navigation.navigate('Rides')}>
+              <Ionicons name="sparkles-outline" size={28} color="#5E2FB8" />
+              <Text style={styles.actionLabel}>Ride Requests</Text>
             </TouchableOpacity>
             <TouchableOpacity style={styles.actionCard} onPress={() => navigation.navigate('Earnings')}>
               <Ionicons name="bar-chart-outline" size={28} color={colors.success.DEFAULT} />
@@ -243,6 +334,19 @@ export const DeliveryDashboardScreen: React.FC = () => {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.surface.background },
+  prefCard: { marginHorizontal: spacing.xl, marginTop: spacing.md, backgroundColor: colors.white, borderRadius: borderRadius.lg, padding: spacing.md },
+  prefTitle: { fontFamily: fontFamily.bold, fontSize: 14, color: colors.gray[800], marginBottom: 6 },
+  prefRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 8 },
+  prefName: { fontFamily: fontFamily.semiBold, fontSize: 14, color: colors.gray[800] },
+  prefWarn: { fontFamily: fontFamily.regular, fontSize: 11, color: '#B54708', marginTop: 2 },
+  rideCard: { marginHorizontal: spacing.xl, marginTop: spacing.md, backgroundColor: '#4A2294', borderRadius: borderRadius.lg, padding: spacing.md },
+  rideLbl: { color: '#F3DD96', fontFamily: fontFamily.bold, fontSize: 11, letterSpacing: 1.2 },
+  rideRoute: { color: '#fff', fontFamily: fontFamily.bold, fontSize: 16, marginTop: 6 },
+  rideFare: { color: '#E6DBF8', fontFamily: fontFamily.medium, fontSize: 13, marginTop: 4 },
+  totalCard: { backgroundColor: colors.white, borderRadius: borderRadius.lg, padding: spacing.md, marginBottom: spacing.sm },
+  totalLbl: { fontFamily: fontFamily.bold, fontSize: 10, letterSpacing: 1.2, color: colors.gray[500] },
+  totalAmt: { fontFamily: fontFamily.bold, fontSize: 32, color: colors.gray[900], marginVertical: 2 },
+  totalSub: { fontFamily: fontFamily.regular, fontSize: 12, color: colors.gray[500] },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',

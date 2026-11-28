@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, Alert, FlatList, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as Location from 'expo-location';
@@ -15,6 +15,7 @@ const P = jinniColors.purple;
 
 type Row =
   | { kind: 'here' }
+  | { kind: 'result'; id: string; text: string; subtitle?: string; lat: number; lng: number }
   | { kind: 'spot'; place: RidePlace }
   | { kind: 'saved'; id: string; text: string; lat: number; lng: number }
   | { kind: 'search'; query: string };
@@ -38,11 +39,38 @@ export const PlacePickerScreen: React.FC = () => {
   const [spots, setSpots] = useState<RidePlace[]>([]);
   const [saved, setSaved] = useState<Saved[]>([]);
   const [busy, setBusy] = useState<string | null>(null);
+  const [remote, setRemote] = useState<{ text: string; subtitle?: string; lat: number; lng: number }[]>([]);
+  const [searching, setSearching] = useState(false);
+  const here = useRef<{ lat: number; lng: number } | null>(null);
 
   useEffect(() => {
-    rideService.config().then((c) => setSpots(c.places)).catch(() => undefined);
+    (async () => {
+      try {
+        const perm = await Location.getForegroundPermissionsAsync();
+        if (perm.granted) {
+          const pos = await Location.getLastKnownPositionAsync();
+          if (pos) here.current = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+        }
+      } catch { /* nearest-first is a nicety */ }
+      rideService.config(here.current?.lat, here.current?.lng).then((c) => setSpots(c.places)).catch(() => undefined);
+    })();
     api.get<any>('/users/addresses').then((d) => setSaved(Array.isArray(d) ? d : d?.addresses || [])).catch(() => undefined);
   }, []);
+
+  // Free OpenStreetMap search (via our cached, rate-limited server proxy), debounced while typing.
+  useEffect(() => {
+    const needle = q.trim();
+    if (needle.length < 3) { setRemote([]); return; }
+    let alive = true;
+    setSearching(true);
+    const t = setTimeout(() => {
+      rideService.searchPlaces(needle, here.current?.lat, here.current?.lng)
+        .then((r) => alive && setRemote(r.results || []))
+        .catch(() => alive && setRemote([]))
+        .finally(() => alive && setSearching(false));
+    }, 550);
+    return () => { alive = false; clearTimeout(t); };
+  }, [q]);
 
   const choose = (pt: { text: string; lat: number; lng: number }) => {
     (mode === 'pickup' ? setPickup : setDrop)(pt);
@@ -95,12 +123,13 @@ export const PlacePickerScreen: React.FC = () => {
     out.push(...spots
       .filter((p) => !needle || `${p.name} ${p.area || ''}`.toLowerCase().includes(needle))
       .map((place): Row => ({ kind: 'spot', place })));
+    out.push(...remote.map((r, i): Row => ({ kind: 'result', id: `${i}`, ...r })));
     out.push(...saved
       .filter((a) => a.latitude != null && a.longitude != null && (!needle || `${a.label || ''} ${a.line1}`.toLowerCase().includes(needle)))
       .map((a, i): Row => ({ kind: 'saved', id: a.id || String(i), text: [a.label, a.line1].filter(Boolean).join(' · '), lat: a.latitude as number, lng: a.longitude as number })));
     if (needle.length >= 3) out.push({ kind: 'search', query: q.trim() });
     return out;
-  }, [q, spots, saved]);
+  }, [q, spots, saved, remote]);
 
   const render = ({ item }: { item: Row }) => {
     const Line = ({ icon, title, sub, onPress, loading }: any) => (
@@ -113,9 +142,10 @@ export const PlacePickerScreen: React.FC = () => {
       </TouchableOpacity>
     );
     if (item.kind === 'here') return <Line icon="📍" title="Use my current location" sub="GPS · free" onPress={useMyLocation} loading={busy === 'here'} />;
+    if (item.kind === 'result') return <Line icon="🔎" title={item.text} sub={item.subtitle} onPress={() => choose({ text: item.text, lat: item.lat, lng: item.lng })} />;
     if (item.kind === 'spot') return <Line icon={item.place.icon || '📍'} title={item.place.name} sub={item.place.area} onPress={() => choose({ text: item.place.name, lat: item.place.lat, lng: item.place.lng })} />;
     if (item.kind === 'saved') return <Line icon="🏠" title={item.text} sub="Saved address" onPress={() => choose({ text: item.text, lat: item.lat, lng: item.lng })} />;
-    return <Line icon="🔎" title={`Find “${item.query}”`} sub="Search this address" onPress={() => geocode(item.query)} loading={busy === 'search'} />;
+    return <Line icon="📱" title={`Try “${item.query}” on this phone`} sub="Uses your phone's built-in address search" onPress={() => geocode(item.query)} loading={busy === 'search'} />;
   };
 
   return (
@@ -135,9 +165,10 @@ export const PlacePickerScreen: React.FC = () => {
       </View>
       <FlatList
         data={rows}
-        keyExtractor={(r, i) => (r.kind === 'spot' ? r.place.id : r.kind === 'saved' ? `s-${r.id}` : `${r.kind}-${i}`)}
+        keyExtractor={(r, i) => (r.kind === 'spot' ? r.place.id : r.kind === 'saved' ? `s-${r.id}` : r.kind === 'result' ? `r-${r.id}` : `${r.kind}-${i}`)}
         renderItem={render}
         keyboardShouldPersistTaps="handled"
+        ListFooterComponent={searching ? <ActivityIndicator style={{ margin: 16 }} color={P[500]} /> : null}
         ListEmptyComponent={<Text style={styles.empty}>No matches. Type a landmark to search.</Text>}
       />
     </View>

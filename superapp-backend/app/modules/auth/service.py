@@ -283,14 +283,22 @@ async def complete_profile(
     elif role == "delivery":
         if not data.name:
             raise ValueError("name is required for delivery role")
+        from app.modules.delivery.kyc import validate_partner
+        kyc = validate_partner(data.model_dump())   # raises ValueError -> 422 with a readable message
+        # A vehicle number / licence belongs to one partner only.
+        dup = (await db.execute(select(DeliveryAgentProfile.id).where(
+            (DeliveryAgentProfile.vehicle_number == kyc["vehicle_number"]) |
+            (DeliveryAgentProfile.license_no == kyc["license_no"])))).first()
+        if dup:
+            raise ValueError("A partner is already registered with this vehicle number or licence")
         profile = DeliveryAgentProfile(
             user_id=user.id,
             name=data.name,
-            vehicle_type=data.vehicle_type,
-            license_no=data.license_no,
-            aadhaar=data.aadhaar,
             bank_account=data.bank_account,
             bank_ifsc=data.bank_ifsc,
+            is_available=False,
+            documents_verified=False,   # admin verifies the originals in person before rides/deliveries go live
+            **kyc,
         )
         db.add(profile)
         user.name = data.name

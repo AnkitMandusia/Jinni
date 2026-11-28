@@ -27,14 +27,59 @@ PIN, CITY, STATE = "302001", "Jaipur", "Rajasthan"
 # Customer-facing / non-food partners. Food restaurant owners are created by the food seed
 # and get their email+password below.
 ACCOUNTS = [
+    # Super admin (web console + mobile app). The second one matches scripts/seed_admin.py.
+    dict(role="admin", email="admin@test.com", phone="+910000000001", name="Super Admin"),
+    dict(role="admin", email="mandusiaankit.005@gmail.com", phone="+910000000002", name="Super Admin", pw="Superadmin@2024"),
     dict(role="customer", email="customer@test.com", phone="+919876543215", name="Test Customer"),
-    dict(role="delivery", email="delivery@test.com", phone="+919876543211", name="Amit Singh (Delivery)"),
-    dict(role="delivery", email="delivery2@test.com", phone="+919876543221", name="Rohit Meena (Delivery)"),
-    dict(role="delivery", email="delivery3@test.com", phone="+919876543222", name="Imran Khan (Delivery)"),
+    dict(role="delivery", email="delivery@test.com", phone="+919876543211", name="Amit Singh (Delivery)", vc="bike"),
+    dict(role="delivery", email="delivery2@test.com", phone="+919876543221", name="Rohit Meena (Delivery)", vc="auto"),
+    dict(role="delivery", email="delivery3@test.com", phone="+919876543222", name="Imran Khan (Delivery)", vc="cab"),
+    # Self-registered partner waiting for admin approval (tests the approval + verification flow)
+    dict(role="delivery", email="delivery4@test.com", phone="+919876543223", name="Pending Partner", vc="bike", pending=True),
     dict(role="store", email="store@test.com", phone="+919876543214", name="Suresh Gupta (Store)"),
     dict(role="cab_driver", email="cab@test.com", phone="+919876543213", name="Vikram Patel (Cab)"),
     dict(role="salon", email="salon@test.com", phone="+919876543212", name="Priya Sharma (Salon)"),
 ]
+
+
+VEHICLES = {  # class -> (make/model, colour, registration prefix, licence issue year)
+    "bike": ("Honda Activa 6G", "Black", "RJ14SB", "2019"),
+    "auto": ("Bajaj RE Compact", "Yellow-Green", "RJ14ZA", "2017"),
+    "cab": ("Maruti Dzire", "White", "RJ14TA", "2016"),
+}
+
+
+async def _seed_partner(db, u, a) -> None:
+    """Complete, valid KYC for a dev partner (verified in person, except the pending one)."""
+    from datetime import date, timedelta
+    pending = a.get("pending", False)
+    vc = a["vc"]
+    make, colour, reg, yr = VEHICLES[vc]
+    last = a["phone"][-4:]
+    p = (await db.execute(select(DeliveryAgentProfile).where(DeliveryAgentProfile.user_id == u.id))).scalar_one_or_none()
+    if not p:
+        p = DeliveryAgentProfile(user_id=u.id, name=a["name"].split(" (")[0])
+        db.add(p)
+    today = date.today()
+    p.name = a["name"].split(" (")[0]
+    p.vehicle_class, p.vehicle_type = vc, vc.capitalize()
+    p.vehicle_make_model, p.vehicle_color, p.vehicle_number = make, colour, f"{reg}{last}"
+    p.license_no = f"RJ14{yr}00{last}{last[-3:]}"[:15]
+    p.dob = date(1996, 5, 14)
+    p.dl_expiry, p.rc_expiry, p.insurance_expiry = today + timedelta(days=900), today + timedelta(days=1500), today + timedelta(days=300)
+    p.aadhaar_last4, p.emergency_name, p.emergency_phone = last, "Family contact", "9876500000"
+    p.pincode = p.pincode or PIN
+    p.upi_id = p.upi_id or f"{a['email'].split('@')[0]}@okaxis"
+    p.is_available = not pending
+    p.documents_verified = not pending
+    p.take_rides = p.take_deliveries = True
+    p.ride_enabled = True
+    # Dev convenience: appear "nearby" in central Jaipur for 5 minutes after seeding. Real riders report their GPS
+    # while online (see riderRideStore.useRideLocationSharing); stale locations stop counting as available.
+    from datetime import datetime
+    p.current_lat, p.current_lng, p.last_location_at = 26.9124, 75.7873, (None if pending else datetime.utcnow())
+    if pending:
+        u.status, u.profile_complete = "pending_approval", True
 
 
 def _hash() -> str:
@@ -60,8 +105,9 @@ async def seed_accounts(db, pw_hash: str) -> list[tuple[str, str]]:
                      status="active", profile_complete=True, is_active=True, is_verified=True)
             db.add(u)
             await db.flush()
-        u.email, u.role, u.status = a["email"], a["role"], "active"
-        u.profile_complete, u.is_active, u.is_verified, u.password_hash = True, True, True, pw_hash
+        u.email, u.role, u.status = a["email"], a["role"], ("pending_approval" if a.get("pending") else "active")
+        u.profile_complete, u.is_active, u.is_verified = True, True, True
+        u.password_hash = bcrypt.hashpw(a["pw"].encode(), bcrypt.gensalt()).decode() if a.get("pw") else pw_hash
 
         if a["role"] == "store":
             has = (await db.execute(select(StoreProfile).where(StoreProfile.user_id == u.id))).scalar_one_or_none()
@@ -70,16 +116,7 @@ async def seed_accounts(db, pw_hash: str) -> list[tuple[str, str]]:
                                     address="12 MI Road", pincode=PIN, city=CITY, state=STATE,
                                     latitude=26.9157, longitude=75.8040, delivery_radius_km=8.0, is_open=True))
         elif a["role"] == "delivery":
-            has = (await db.execute(select(DeliveryAgentProfile).where(DeliveryAgentProfile.user_id == u.id))).scalar_one_or_none()
-            if has:  # profiles created by older seeds lack pincode/UPI
-                has.pincode = has.pincode or PIN
-                has.upi_id = has.upi_id or f"{a['email'].split('@')[0]}@okaxis"
-                has.is_available = True
-            if not has:
-                first = (a["name"] or "Rider").split(" (")[0]
-                db.add(DeliveryAgentProfile(user_id=u.id, name=first, vehicle_type="Bike", pincode=PIN,
-                                            license_no="RJ14" + a["phone"][-8:], aadhaar="123456789012",
-                                            upi_id=f"{a['email'].split('@')[0]}@okaxis", is_available=True))
+            await _seed_partner(db, u, a)
         out.append((a["role"], a["email"]))
     return out
 
@@ -101,8 +138,13 @@ PLACES = [
 
 async def seed_rides(db) -> None:
     from app.modules.rides.models import RidePlace, RideSettings
-    if not await db.get(RideSettings, 1):
-        db.add(RideSettings(id=1, platform_upi_id="jinni@okaxis"))
+    rs = await db.get(RideSettings, 1)
+    if not rs:
+        rs = RideSettings(id=1)
+        db.add(rs)
+    rs.platform_upi_id = rs.platform_upi_id or "jinni@okaxis"
+    if rs.service_lat is None:  # Jaipur service area (20 km around the city centre)
+        rs.service_lat, rs.service_lng, rs.service_radius_km = 26.9124, 75.7873, 25
     have = {p for (p,) in (await db.execute(select(RidePlace.name))).all()}
     for i, (name, area, icon, lat, lng) in enumerate(PLACES):
         if name not in have:

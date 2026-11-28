@@ -22,6 +22,7 @@ from app.modules.users.models import User, StoreProfile, RestaurantProfile, Deli
 from app.modules.notifications.service import send_push, send_push_multicast
 from app.modules.coupons.service import validate_coupon_for_order, record_cod_redemption
 from app.modules.engagement import service as engagement
+from app.modules.rides import dues as ride_dues
 
 # Statuses from which a customer may still cancel: nobody has started preparing
 # or picked up the goods yet, so cancelling costs the store nothing.
@@ -145,7 +146,14 @@ class OrderService:
         )
         db.add(order)
         await db.flush()
-        
+
+        # Earlier ride-cancellation fees ride along with this order (released again if it fails).
+        dues = await ride_dues.apply_to(db, customer_id, f"order:{order.id}")
+        if dues > 0:
+            order.platform_dues = dues
+            order.total_amount = Decimal(order.total_amount) + dues
+            total_amount = order.total_amount
+
         # Create order items
         for item_data in order_items_data:
             item = OrderItem(order_id=order.id, **item_data)
@@ -202,6 +210,7 @@ class OrderService:
             order.status = OrderStatus.NO_STORE_AVAILABLE.value
             await OrderService.release_reserved_stock(db, order)
             await engagement.refund_wallet_order(db, order)
+            await ride_dues.release(db, f"order:{order.id}")
             await db.commit()
             return
         
@@ -292,6 +301,7 @@ class OrderService:
 
         await OrderService.release_reserved_stock(db, order)
         await engagement.refund_wallet_order(db, order)
+        await ride_dues.release(db, f"order:{order.id}")
 
         # Money already captured online is OWED, not auto-refunded: flag it for
         # ops/gateway processing rather than pretending a refund happened.
@@ -342,6 +352,9 @@ class OrderService:
                     detail="Order not found"
                 )
             
+            if str(order.order_type) != OrderType.GROCERY.value:
+                raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Order not found")
+
             if order.status != OrderStatus.PENDING_DISPATCH.value:
                 raise HTTPException(
                     status_code=status.HTTP_409_CONFLICT,
@@ -488,8 +501,15 @@ class OrderService:
             order.picked_up_at = datetime.utcnow()
         elif new_status_val == "delivered":
             order.delivered_at = datetime.utcnow()
+            if str(order.payment_method) == "cod" and str(order.payment_status) == "pending":
+                order.payment_status = "paid"  # the rider collected the cash at the door
             await engagement.on_order_delivered(db, order)
-            for item in order.items:
+            from app.modules.finance.service import snapshot_order
+            await snapshot_order(db, order)  # freeze commission / seller / rider amounts
+            # Explicit query: `order.items` would lazy-load inside async code (MissingGreenlet -> HTTP 500,
+            # which made every OTP delivery fail).
+            items = (await db.execute(select(OrderItem).where(OrderItem.order_id == order.id))).scalars().all()
+            for item in items:
                 if item.product_id:
                     product = await db.get(Product, item.product_id)
                     if product:
@@ -536,6 +556,9 @@ class OrderService:
                     User.role == "delivery",
                     User.status == "active",
                     DeliveryAgentProfile.is_available == True,
+                    DeliveryAgentProfile.take_deliveries == True,
+                    # food/grocery run on two-wheelers only; auto and cab partners are ride-only
+                    or_(DeliveryAgentProfile.vehicle_class.is_(None), DeliveryAgentProfile.vehicle_class == "bike"),
                 )
             )
         )
@@ -607,7 +630,11 @@ class OrderService:
             .where(
                 and_(
                     Order.status == OrderStatus.PENDING_DISPATCH.value,
-                    Order.delivery_pincode == store_pincode
+                    Order.delivery_pincode == store_pincode,
+                    # scheduled orders appear 45 min before the slot (see app/tasks.py), not days ahead
+                    or_(Order.scheduled_for.is_(None), Order.scheduled_for <= datetime.utcnow() + timedelta(minutes=45)),
+                    # food orders belong to their restaurant, never to a grocery store's queue
+                    Order.order_type == OrderType.GROCERY.value,
                 )
             )
             .order_by(Order.created_at.desc())

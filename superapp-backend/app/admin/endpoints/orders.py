@@ -224,6 +224,8 @@ async def manual_complete_delivery(
     order.delivered_at = datetime.utcnow()
     from app.modules.engagement import service as engagement
     await engagement.on_order_delivered(db, order)
+    from app.modules.finance.service import snapshot_order
+    await snapshot_order(db, order)
     # Clear any static OTP
     if hasattr(order, "delivery_otp"):
         order.delivery_otp = None

@@ -15,6 +15,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { FoodStackParamList } from '@navigation/stacks/FoodStack';
 import { AppButton } from '@components/AppButton';
 import { CheckoutExtras } from '@components/CheckoutExtras';
+import { InfoTip } from '@modules/cab/components/InfoTip';
+import { useRideDues } from '@shared/hooks/useRideDues';
 import { formatPrice } from '@utils/helpers';
 import { api } from '@services/api';
 import { useCartStore } from '@modules/cart/store/cartStore';
@@ -81,6 +83,7 @@ export const CheckoutScreen: React.FC = () => {
   const [couponMsg, setCouponMsg] = useState('');
   const [loading, setLoading] = useState(false);
   const [loadingAddr, setLoadingAddr] = useState(true);
+  const rideDues = useRideDues();
 
   useEffect(() => {
     (async () => {
@@ -118,7 +121,7 @@ export const CheckoutScreen: React.FC = () => {
   const effectiveDelivery =
     freeAbove != null && subtotal >= Number(freeAbove) ? 0 : deliveryFee;
   const tax = Math.round(subtotal * 0.05 * 100) / 100;
-  const total = Math.max(0, subtotal + effectiveDelivery + packaging + tax - couponDiscount);
+  const total = Math.max(0, subtotal + effectiveDelivery + packaging + tax - couponDiscount) + rideDues.total;
 
   const applyCoupon = async () => {
     if (!coupon.trim()) return;
@@ -496,6 +499,18 @@ export const CheckoutScreen: React.FC = () => {
               <Text style={[styles.sumPrice, { color: colors.success.DEFAULT }]}>
                 −{formatPrice(couponDiscount)}
               </Text>
+            </View>
+          )}
+          {rideDues.total > 0 && (
+            <View style={styles.sumRow}>
+              <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center' }}>
+                <Text style={styles.sumName}>Ride cancellation charge</Text>
+                <InfoTip
+                  title="Why this charge?"
+                  message={`You cancelled ${rideDues.items.length > 1 ? 'earlier rides' : 'an earlier ride'} after a rider was on the way${rideDues.items[0] ? ` (${rideDues.items[0].ride_number})` : ''}. The fee (₹${rideDues.total.toFixed(0)}) is added to this order once, and then it's cleared. See Profile → Ride charges.`}
+                />
+              </View>
+              <Text style={styles.sumPrice}>{formatPrice(rideDues.total)}</Text>
             </View>
           )}
           <View style={[styles.sumRow, styles.total]}>
